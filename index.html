@@ -620,27 +620,28 @@
             addGeoJSONLayers();
         }
 
-        // Update addGeoJSONLayers to use the policy-prefixed paths
+        // Update addGeoJSONLayers to use the policy name in file paths
         function addGeoJSONLayers() {
             const configParts = currentConfig.split('/');
             const configPrefix = configParts[1].split('-').slice(0, 3).join('-');
+            const policyName = configParts[0]; // Convert policy name to lowercase for filenames
 
             if (!map.getSource('geojson-data')) {
                 map.addSource('geojson-data', {
                     type: 'geojson',
-                    data: currentConfig + '/aa_alps_' + configPrefix + '.geojson'
+                    data: currentConfig + '/aa_' + policyName + '_' + configPrefix + '.geojson'
                 });
             } else {
-                map.getSource('geojson-data').setData(currentConfig + '/aa_alps_' + configPrefix + '.geojson');
+                map.getSource('geojson-data').setData(currentConfig + '/aa_' + policyName + '_' + configPrefix + '.geojson');
             }
             
             if (!map.getSource('polygons')) {
                 map.addSource('polygons', {
                     type: 'geojson',
-                    data: currentConfig + '/aa_alps_' + configPrefix + '_sectors1.geojson'
+                    data: currentConfig + '/aa_' + policyName + '_' + configPrefix + '_sectors1.geojson'
                 });
             } else {
-                map.getSource('polygons').setData(currentConfig + '/aa_alps_' + configPrefix + '_sectors1.geojson');
+                map.getSource('polygons').setData(currentConfig + '/aa_' + policyName + '_' + configPrefix + '_sectors1.geojson');
             }
             
             // ---------------------------------------------------------------------
