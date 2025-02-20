@@ -11,10 +11,10 @@ const FILES_TO_CACHE = [];
 
 // Install event: Pre-cache essential files.
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Install event');
+  // console.log('[Service Worker] Install event');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Pre-caching assets:', FILES_TO_CACHE);
+      // console.log('[Service Worker] Pre-caching assets:', FILES_TO_CACHE);
       return cache.addAll(FILES_TO_CACHE).catch((error) => {
         console.error('[Service Worker] Pre-caching failed:', error);
       });
@@ -26,13 +26,13 @@ self.addEventListener('install', (event) => {
 
 // Activate event: Clean up any old caches.
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activate event');
+  // console.log('[Service Worker] Activate event');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((name) => {
           if (name !== CACHE_NAME) {
-            console.log('[Service Worker] Removing old cache:', name);
+            // console.log('[Service Worker] Removing old cache:', name);
             return caches.delete(name);
           }
         })
@@ -59,7 +59,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        console.log(`[Service Worker] Serving from cache: ${event.request.url}`);
+        // console.log(`[Service Worker] Serving from cache: ${event.request.url}`);
         // Return the cached response immediately, with no refresh.
         return cachedResponse;
       }
@@ -69,19 +69,19 @@ self.addEventListener('fetch', (event) => {
         .then((networkResponse) => {
           // Increment our counter for every network fetch.
           networkFetchCount++;
-          console.log(`[Service Worker] Network fetch count: ${networkFetchCount}`);
+          // console.log(`[Service Worker] Network fetch count: ${networkFetchCount}`);
           if (networkResponse && networkResponse.status === 200) {
             // Clone the response for caching.
             const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              console.log(`[Service Worker] Fetched and caching: ${event.request.url}`);
+              // console.log(`[Service Worker] Fetched and caching: ${event.request.url}`);
               cache.put(event.request, responseClone);
             });
           }
           return networkResponse;
         })
         .catch((error) => {
-          console.error(`[Service Worker] Fetch failed for: ${event.request.url}`, error);
+          // console.error(`[Service Worker] Fetch failed for: ${event.request.url}`, error);
           throw error;
         });
     })

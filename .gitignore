@@ -1,3 +1,6 @@
 /map
 *.mbtiles
 **/.DS_Store
+/alps/
+# Ignore specific config folders
+/West_alps_with_fields/
