@@ -1038,13 +1038,13 @@
             });
 
             // Create a directional arrow
-            const size = 24;
+            const size = 48;  // Doubled from 24 to 48
             const canvas = document.createElement('canvas');
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext('2d');
 
-            // Draw a more directional arrow
+            // Draw a triangle where base is half the size of sides
             ctx.beginPath();
             // Start from the tip
             ctx.moveTo(size/2, 0);          // Top point (tip)
@@ -1055,10 +1055,10 @@
             // Fill with blue color
             ctx.fillStyle = '#0066FF';
             ctx.fill();
-            
+
             // Add white stroke
             ctx.strokeStyle = '#FFFFFF';
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 2;  // Increased stroke width to match new size
             ctx.stroke();
 
             // Add the image to the map
@@ -1071,7 +1071,7 @@
                 source: 'location-marker',
                 layout: {
                     'icon-image': 'arrow',
-                    'icon-size': 1,
+                    'icon-size': 1,  // Keep at 1 since we increased the canvas size
                     'icon-rotate': ['get', 'bearing'],
                     'icon-rotation-alignment': 'map',
                     'icon-allow-overlap': true,
@@ -1472,6 +1472,15 @@
             // Store current position for next update
             previousPosition = position;
         }
+
+        // Start tracking location when the map loads
+        navigator.geolocation.watchPosition(updateLocation, (error) => {
+            console.error('Error getting location:', error);
+        }, {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
+        });
 
     </script>
 </body>
