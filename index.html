@@ -1047,13 +1047,9 @@
             // Draw a more directional arrow
             ctx.beginPath();
             // Start from the tip
-            ctx.moveTo(size/2, 0);          // Top point
-            ctx.lineTo(size/4, size/2);     // Mid-left point
-            ctx.lineTo(size*3/8, size/2);   // Inner-left point
-            ctx.lineTo(size*3/8, size);     // Bottom-left point
-            ctx.lineTo(size*5/8, size);     // Bottom-right point
-            ctx.lineTo(size*5/8, size/2);   // Inner-right point
-            ctx.lineTo(size*3/4, size/2);   // Mid-right point
+            ctx.moveTo(size/2, 0);          // Top point (tip)
+            ctx.lineTo(size/4, size);       // Bottom left
+            ctx.lineTo(size*3/4, size);     // Bottom right
             ctx.closePath();
 
             // Fill with blue color
