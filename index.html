@@ -1435,7 +1435,6 @@
 
         // Function to update location and calculate bearing from movement
         function updateLocation(position) {
-            console.log('Updating location:', position.coords);
             if (!map.getSource('location-marker')) {
                 console.warn('Location marker source not found');
                 return;
@@ -1452,10 +1451,20 @@
                     position.coords.latitude,
                     position.coords.longitude
                 );
-                console.log('Calculated bearing:', bearing);
+                console.log('New position:', {
+                    from: [previousPosition.coords.latitude, previousPosition.coords.longitude],
+                    to: [position.coords.latitude, position.coords.longitude],
+                    bearing: bearing
+                });
             }
             
-            console.log('Updating marker with coords:', coords, 'bearing:', bearing);
+            // Store current position for next update
+            previousPosition = {
+                coords: {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                }
+            };
             
             // Update the marker position and bearing
             map.getSource('location-marker').setData({
@@ -1468,9 +1477,6 @@
                     bearing: bearing
                 }
             });
-            
-            // Store current position for next update
-            previousPosition = position;
         }
 
         // Start tracking location when the map loads
