@@ -486,9 +486,6 @@
         <button title="More Options" id="moreOptionsBtn">
             <span class="material-icons-round">menu</span>
         </button>
-        <button title="Track Location" id="locationTrackingBtn">
-            <span class="material-icons-round">my_location</span>
-        </button>
     </div>
 
     <!-- Popup Menu: For controls not requiring constant map visibility -->
@@ -1025,7 +1022,7 @@
         map.on('load', () => {
             addGeoJSONLayers();
             
-            // Create a simple circle marker first to make sure location tracking works
+            // Create the location marker source
             map.addSource('location-marker', {
                 type: 'geojson',
                 data: {
@@ -1040,42 +1037,71 @@
                 }
             });
 
-            // Add a visible circle layer
+            // Create a directional arrow
+            const size = 24;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Draw a more directional arrow
+            ctx.beginPath();
+            // Start from the tip
+            ctx.moveTo(size/2, 0);          // Top point
+            ctx.lineTo(size/4, size/2);     // Mid-left point
+            ctx.lineTo(size*3/8, size/2);   // Inner-left point
+            ctx.lineTo(size*3/8, size);     // Bottom-left point
+            ctx.lineTo(size*5/8, size);     // Bottom-right point
+            ctx.lineTo(size*5/8, size/2);   // Inner-right point
+            ctx.lineTo(size*3/4, size/2);   // Mid-right point
+            ctx.closePath();
+
+            // Fill with blue color
+            ctx.fillStyle = '#0066FF';
+            ctx.fill();
+            
+            // Add white stroke
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Add the image to the map
+            map.addImage('arrow', ctx.getImageData(0, 0, size, size));
+
+            // Add only the arrow layer (no circle)
             map.addLayer({
-                id: 'location-marker-circle',
-                type: 'circle',
+                id: 'location-marker-arrow',
+                type: 'symbol',
                 source: 'location-marker',
-                paint: {
-                    'circle-radius': 8,
-                    'circle-color': '#0066FF',
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#FFFFFF'
+                layout: {
+                    'icon-image': 'arrow',
+                    'icon-size': 1,
+                    'icon-rotate': ['get', 'bearing'],
+                    'icon-rotation-alignment': 'map',
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true
                 }
             });
 
-            // Then try to add the arrow icon and layer
-            const arrowImage = new Image();
-            arrowImage.onload = () => {
-                console.log('Arrow image loaded');
-                map.addImage('arrow', arrowImage);
+            // Start tracking location automatically
+            if ('geolocation' in navigator) {
+                const options = {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                };
                 
-                map.addLayer({
-                    id: 'location-marker-arrow',
-                    type: 'symbol',
-                    source: 'location-marker',
-                    layout: {
-                        'icon-image': 'arrow',
-                        'icon-size': 1.5,
-                        'icon-rotate': ['get', 'bearing'],
-                        'icon-rotation-alignment': 'map',
-                        'icon-allow-overlap': true,
-                        'icon-ignore-placement': true
-                    }
-                });
-                console.log('Arrow layer added');
-            };
-            arrowImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAGHSURBVDiNrdS/S1ZhFMfx93nkXgdFcHBoEERoKYKWEBqiP6GhKYKWlqDVQRqCoCFoCAqaGhqiJQiCpqYgaAhavF4vvF4vkuW9t+E5cLk8z/srn+mc7/mec57znO85/EfUap1eRLyNiG8RsRQRSxHxNSLeRES31vPfiIjDEbEcmxER0xHR2G2g0RjeiYiXEXEqIqYjot3oNGcaEXE6Il5FxN2IaP0VrNW6ExFxMyL2j9PZiLgVEbO7Ao2GuxExN0lnI+JeRByYCIyIyxExvxvQaDjvR8TlsWCtdjgiHkTEob8FjYbzYURcGAFrtXZEPImIo/8KGg3nk4g4NwK22zsi4llEnNgr0Gg4n0fE2WGw3Z6OiJcRcWqvQaPhfBURp4fATmc2Il5HxJn/BRoN57uIONnvdLszFxFvI+L8XoNGw/khIo73O93uLETEh4i4+K9Ao+H8FBHH+p3FiPgcEVci4p9vYa3WvxwRnyLiWkR8jIgrEfHov0P+K74DcFbuDyWw7ggAAAAASUVORK5CYII=';
-            
+                navigator.geolocation.watchPosition(
+                    updateLocation,
+                    (error) => {
+                        console.error('Error getting location:', error);
+                    },
+                    options
+                );
+            } else {
+                console.warn('Geolocation is not supported by this browser.');
+            }
+
             // Rest of the map.on('load') code...
             if (map.getLayer('points-layer-clickable')) {
                 map.on('click', 'points-layer-clickable', handlePointClick);
@@ -1450,64 +1476,6 @@
             // Store current position for next update
             previousPosition = position;
         }
-
-        let watchId = null;  // Store the watch ID to stop tracking when needed
-
-        // Function to start location tracking
-        function startLocationTracking() {
-            if (!watchId && 'geolocation' in navigator) {
-                const options = {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 5000
-                };
-                
-                watchId = navigator.geolocation.watchPosition(
-                    updateLocation,
-                    (error) => {
-                        console.error('Error getting location:', error);
-                    },
-                    options
-                );
-                
-                // Update button icon to show active tracking
-                document.getElementById('locationTrackingBtn').querySelector('.material-icons-round').textContent = 'gps_fixed';
-            }
-        }
-
-        // Function to stop location tracking
-        function stopLocationTracking() {
-            if (watchId) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-                
-                // Update button icon to show tracking is off
-                document.getElementById('locationTrackingBtn').querySelector('.material-icons-round').textContent = 'my_location';
-                
-                // Clear the marker from the map
-                if (map.getSource('location-marker')) {
-                    map.getSource('location-marker').setData({
-                        type: 'Feature',
-                        geometry: {
-                            type: 'Point',
-                            coordinates: [0, 0]
-                        },
-                        properties: {
-                            bearing: 0
-                        }
-                    });
-                }
-            }
-        }
-
-        // Toggle location tracking when the button is clicked
-        document.getElementById('locationTrackingBtn').addEventListener('click', () => {
-            if (watchId) {
-                stopLocationTracking();
-            } else {
-                startLocationTracking();
-            }
-        });
 
     </script>
 </body>
