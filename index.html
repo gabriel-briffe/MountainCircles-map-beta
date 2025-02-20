@@ -1025,47 +1025,54 @@
         map.on('load', () => {
             addGeoJSONLayers();
             
-            // First create and load the arrow icon
-            const arrowImage = new Image(20, 20);
+            // Create a simple circle marker first to make sure location tracking works
+            map.addSource('location-marker', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [0, 0]
+                    },
+                    properties: {
+                        bearing: 0
+                    }
+                }
+            });
+
+            // Add a visible circle layer
+            map.addLayer({
+                id: 'location-marker-circle',
+                type: 'circle',
+                source: 'location-marker',
+                paint: {
+                    'circle-radius': 8,
+                    'circle-color': '#0066FF',
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#FFFFFF'
+                }
+            });
+
+            // Then try to add the arrow icon and layer
+            const arrowImage = new Image();
             arrowImage.onload = () => {
                 console.log('Arrow image loaded');
-                // Only add the source and layer after the icon is loaded
                 map.addImage('arrow', arrowImage);
                 
-                // Then add the location marker source
-                map.addSource('location-marker', {
-                    type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        geometry: {
-                            type: 'Point',
-                            coordinates: [0, 0]
-                        },
-                        properties: {
-                            bearing: 0
-                        }
-                    }
-                });
-
-                // Finally add the location marker layer
                 map.addLayer({
-                    id: 'location-marker',
+                    id: 'location-marker-arrow',
                     type: 'symbol',
                     source: 'location-marker',
                     layout: {
                         'icon-image': 'arrow',
-                        'icon-size': 1.5,         // Made the arrow bigger
+                        'icon-size': 1.5,
                         'icon-rotate': ['get', 'bearing'],
                         'icon-rotation-alignment': 'map',
                         'icon-allow-overlap': true,
                         'icon-ignore-placement': true
-                    },
-                    paint: {
-                        'icon-color': '#0066FF'    // Added blue color to make it more visible
                     }
                 });
-                
-                console.log('Location marker layer added');
+                console.log('Arrow layer added');
             };
             arrowImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAGHSURBVDiNrdS/S1ZhFMfx93nkXgdFcHBoEERoKYKWEBqiP6GhKYKWlqDVQRqCoCFoCAqaGhqiJQiCpqYgaAhavF4vvF4vkuW9t+E5cLk8z/srn+mc7/mec57znO85/EfUap1eRLyNiG8RsRQRSxHxNSLeRES31vPfiIjDEbEcmxER0xHR2G2g0RjeiYiXEXEqIqYjot3oNGcaEXE6Il5FxN2IaP0VrNW6ExFxMyL2j9PZiLgVEbO7Ao2GuxExN0lnI+JeRByYCIyIyxExvxvQaDjvR8TlsWCtdjgiHkTEob8FjYbzYURcGAFrtXZEPImIo/8KGg3nk4g4NwK22zsi4llEnNgr0Gg4n0fE2WGw3Z6OiJcRcWqvQaPhfBURp4fATmc2Il5HxJn/BRoN57uIONnvdLszFxFvI+L8XoNGw/khIo73O93uLETEh4i4+K9Ao+H8FBHH+p3FiPgcEVci4p9vYa3WvxwRnyLiWkR8jIgrEfHov0P+K74DcFbuDyWw7ggAAAAASUVORK5CYII=';
             
