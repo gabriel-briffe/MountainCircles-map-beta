@@ -1025,50 +1025,48 @@
         map.on('load', () => {
             addGeoJSONLayers();
             
-            // Add the location marker source and layer
-            map.addSource('location-marker', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [0, 0]
-                    },
-                    properties: {
-                        bearing: 0
-                    }
-                }
-            });
-
-            // Add the location marker layer
-            map.addLayer({
-                id: 'location-marker',
-                type: 'symbol',
-                source: 'location-marker',
-                layout: {
-                    'icon-image': 'arrow',
-                    'icon-size': 1,
-                    'icon-rotate': ['get', 'bearing'],
-                    'icon-rotation-alignment': 'map',
-                    'icon-allow-overlap': true,
-                    'icon-ignore-placement': true
-                }
-            });
-
-            // Create and load the arrow icon
+            // First create and load the arrow icon
             const arrowImage = new Image(20, 20);
             arrowImage.onload = () => {
+                // Only add the source and layer after the icon is loaded
                 map.addImage('arrow', arrowImage);
+                
+                // Then add the location marker source
+                map.addSource('location-marker', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [0, 0]
+                        },
+                        properties: {
+                            bearing: 0
+                        }
+                    }
+                });
+
+                // Finally add the location marker layer
+                map.addLayer({
+                    id: 'location-marker',
+                    type: 'symbol',
+                    source: 'location-marker',
+                    layout: {
+                        'icon-image': 'arrow',
+                        'icon-size': 1,
+                        'icon-rotate': ['get', 'bearing'],
+                        'icon-rotation-alignment': 'map',
+                        'icon-allow-overlap': true,
+                        'icon-ignore-placement': true
+                    }
+                });
             };
             arrowImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAGHSURBVDiNrdS/S1ZhFMfx93nkXgdFcHBoEERoKYKWEBqiP6GhKYKWlqDVQRqCoCFoCAqaGhqiJQiCpqYgaAhavF4vvF4vkuW9t+E5cLk8z/srn+mc7/mec57znO85/EfUap1eRLyNiG8RsRQRSxHxNSLeRES31vPfiIjDEbEcmxER0xHR2G2g0RjeiYiXEXEqIqYjot3oNGcaEXE6Il5FxN2IaP0VrNW6ExFxMyL2j9PZiLgVEbO7Ao2GuxExN0lnI+JeRByYCIyIyxExvxvQaDjvR8TlsWCtdjgiHkTEob8FjYbzYURcGAFrtXZEPImIo/8KGg3nk4g4NwK22zsi4llEnNgr0Gg4n0fE2WGw3Z6OiJcRcWqvQaPhfBURp4fATmc2Il5HxJn/BRoN57uIONnvdLszFxFvI+L8XoNGw/khIo73O93uLETEh4i4+K9Ao+H8FBHH+p3FiPgcEVci4p9vYa3WvxwRnyLiWkR8jIgrEfHov0P+K74DcFbuDyWw7ggAAAAASUVORK5CYII=';
             
-            // Attach the click handler to the clickable layer
+            // Rest of the map.on('load') code...
             if (map.getLayer('points-layer-clickable')) {
                 map.on('click', 'points-layer-clickable', handlePointClick);
-            } else {
-                console.warn("points-layer-clickable not found on map load.");
             }
-            
             if (navigator.onLine) {
                 map.once('idle', hideLoadingMessage);
             }
