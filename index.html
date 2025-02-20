@@ -486,6 +486,9 @@
         <button title="More Options" id="moreOptionsBtn">
             <span class="material-icons-round">menu</span>
         </button>
+        <button title="Track Location" id="locationTrackingBtn">
+            <span class="material-icons-round">my_location</span>
+        </button>
     </div>
 
     <!-- Popup Menu: For controls not requiring constant map visibility -->
@@ -1021,12 +1024,51 @@
         // Attach layers and events once the map has fully loaded.
         map.on('load', () => {
             addGeoJSONLayers();
-            // Attach the click handler to the clickable layer.
+            
+            // Add the location marker source and layer
+            map.addSource('location-marker', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [0, 0]
+                    },
+                    properties: {
+                        bearing: 0
+                    }
+                }
+            });
+
+            // Add the location marker layer
+            map.addLayer({
+                id: 'location-marker',
+                type: 'symbol',
+                source: 'location-marker',
+                layout: {
+                    'icon-image': 'arrow',
+                    'icon-size': 1,
+                    'icon-rotate': ['get', 'bearing'],
+                    'icon-rotation-alignment': 'map',
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true
+                }
+            });
+
+            // Create and load the arrow icon
+            const arrowImage = new Image(20, 20);
+            arrowImage.onload = () => {
+                map.addImage('arrow', arrowImage);
+            };
+            arrowImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAGHSURBVDiNrdS/S1ZhFMfx93nkXgdFcHBoEERoKYKWEBqiP6GhKYKWlqDVQRqCoCFoCAqaGhqiJQiCpqYgaAhavF4vvF4vkuW9t+E5cLk8z/srn+mc7/mec57znO85/EfUap1eRLyNiG8RsRQRSxHxNSLeRES31vPfiIjDEbEcmxER0xHR2G2g0RjeiYiXEXEqIqYjot3oNGcaEXE6Il5FxN2IaP0VrNW6ExFxMyL2j9PZiLgVEbO7Ao2GuxExN0lnI+JeRByYCIyIyxExvxvQaDjvR8TlsWCtdjgiHkTEob8FjYbzYURcGAFrtXZEPImIo/8KGg3nk4g4NwK22zsi4llEnNgr0Gg4n0fE2WGw3Z6OiJcRcWqvQaPhfBURp4fATmc2Il5HxJn/BRoN57uIONnvdLszFxFvI+L8XoNGw/khIo73O93uLETEh4i4+K9Ao+H8FBHH+p3FiPgcEVci4p9vYa3WvxwRnyLiWkR8jIgrEfHov0P+K74DcFbuDyWw7ggAAAAASUVORK5CYII=';
+            
+            // Attach the click handler to the clickable layer
             if (map.getLayer('points-layer-clickable')) {
                 map.on('click', 'points-layer-clickable', handlePointClick);
             } else {
                 console.warn("points-layer-clickable not found on map load.");
             }
+            
             if (navigator.onLine) {
                 map.once('idle', hideLoadingMessage);
             }
@@ -1338,46 +1380,6 @@
                 });
         }
 
-        // Add the location marker source and layer when map loads
-        map.on('style.load', () => {
-            // Add the location marker source
-            map.addSource('location-marker', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [0, 0]
-                    },
-                    properties: {
-                        bearing: 0
-                    }
-                }
-            });
-
-            // Add the location marker layer
-            map.addLayer({
-                id: 'location-marker',
-                type: 'symbol',
-                source: 'location-marker',
-                layout: {
-                    'icon-image': 'arrow',
-                    'icon-size': 1,
-                    'icon-rotate': ['get', 'bearing'],
-                    'icon-rotation-alignment': 'map',
-                    'icon-allow-overlap': true,
-                    'icon-ignore-placement': true
-                }
-            });
-
-            // Create and load the arrow icon
-            const arrowImage = new Image(20, 20);
-            arrowImage.onload = () => {
-                map.addImage('arrow', arrowImage);
-            };
-            arrowImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAGHSURBVDiNrdS/S1ZhFMfx93nkXgdFcHBoEERoKYKWEBqiP6GhKYKWlqDVQRqCoCFoCAqaGhqiJQiCpqYgaAhavF4vvF4vkuW9t+E5cLk8z/srn+mc7/mec57znO85/EfUap1eRLyNiG8RsRQRSxHxNSLeRES31vPfiIjDEbEcmxER0xHR2G2g0RjeiYiXEXEqIqYjot3oNGcaEXE6Il5FxN2IaP0VrNW6ExFxMyL2j9PZiLgVEbO7Ao2GuxExN0lnI+JeRByYCIyIyxExvxvQaDjvR8TlsWCtdjgiHkTEob8FjYbzYURcGAFrtXZEPImIo/8KGg3nk4g4NwK22zsi4llEnNgr0Gg4n0fE2WGw3Z6OiJcRcWqvQaPhfBURp4fATmc2Il5HxJn/BRoN57uIONnvdLszFxFvI+L8XoNGw/khIo73O93uLETEh4i4+K9Ao+H8FBHH+p3FiPgcEVci4p9vYa3WvxwRnyLiWkR8jIgrEfHov0P+K74DcFbuDyWw7ggAAAAASUVORK5CYII=';
-        });
-
         // Keep track of previous position to calculate bearing
         let previousPosition = null;
 
@@ -1400,7 +1402,11 @@
 
         // Function to update location and calculate bearing from movement
         function updateLocation(position) {
-            if (!map.getSource('location-marker')) return;
+            console.log('Updating location:', position.coords);
+            if (!map.getSource('location-marker')) {
+                console.warn('Location marker source not found');
+                return;
+            }
             
             const coords = [position.coords.longitude, position.coords.latitude];
             let bearing = 0;
@@ -1413,6 +1419,7 @@
                     position.coords.latitude,
                     position.coords.longitude
                 );
+                console.log('Calculated bearing:', bearing);
             }
             
             // Only update bearing if we're moving (speed > 1 m/s)
@@ -1452,24 +1459,63 @@
             previousPosition = position;
         }
 
-        // Watch position with high accuracy
-        if ('geolocation' in navigator) {
-            const options = {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 5000
-            };
-            
-            navigator.geolocation.watchPosition(
-                updateLocation,
-                (error) => {
-                    console.error('Error getting location:', error);
-                },
-                options
-            );
-        } else {
-            console.log('Geolocation is not supported by this browser.');
+        let watchId = null;  // Store the watch ID to stop tracking when needed
+
+        // Function to start location tracking
+        function startLocationTracking() {
+            if (!watchId && 'geolocation' in navigator) {
+                const options = {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                };
+                
+                watchId = navigator.geolocation.watchPosition(
+                    updateLocation,
+                    (error) => {
+                        console.error('Error getting location:', error);
+                    },
+                    options
+                );
+                
+                // Update button icon to show active tracking
+                document.getElementById('locationTrackingBtn').querySelector('.material-icons-round').textContent = 'gps_fixed';
+            }
         }
+
+        // Function to stop location tracking
+        function stopLocationTracking() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                
+                // Update button icon to show tracking is off
+                document.getElementById('locationTrackingBtn').querySelector('.material-icons-round').textContent = 'my_location';
+                
+                // Clear the marker from the map
+                if (map.getSource('location-marker')) {
+                    map.getSource('location-marker').setData({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [0, 0]
+                        },
+                        properties: {
+                            bearing: 0
+                        }
+                    });
+                }
+            }
+        }
+
+        // Toggle location tracking when the button is clicked
+        document.getElementById('locationTrackingBtn').addEventListener('click', () => {
+            if (watchId) {
+                stopLocationTracking();
+            } else {
+                startLocationTracking();
+            }
+        });
 
     </script>
 </body>
