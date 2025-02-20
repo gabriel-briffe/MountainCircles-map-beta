@@ -1030,52 +1030,20 @@
                     geometry: {
                         type: 'Point',
                         coordinates: [0, 0]
-                    },
-                    properties: {
-                        bearing: 0
                     }
                 }
             });
 
-            // Create a directional arrow
-            const size = 48;  // Doubled from 24 to 48
-            const canvas = document.createElement('canvas');
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-
-            // Draw a triangle where base is half the size of sides
-            ctx.beginPath();
-            // Start from the tip
-            ctx.moveTo(size/2, 0);          // Top point (tip)
-            ctx.lineTo(size/4, size);       // Bottom left
-            ctx.lineTo(size*3/4, size);     // Bottom right
-            ctx.closePath();
-
-            // Fill with blue color
-            ctx.fillStyle = '#0066FF';
-            ctx.fill();
-
-            // Add white stroke
-            ctx.strokeStyle = '#FFFFFF';
-            ctx.lineWidth = 2;  // Increased stroke width to match new size
-            ctx.stroke();
-
-            // Add the image to the map
-            map.addImage('arrow', ctx.getImageData(0, 0, size, size));
-
-            // Add only the arrow layer (no circle)
+            // Add a simple circle layer
             map.addLayer({
-                id: 'location-marker-arrow',
-                type: 'symbol',
+                id: 'location-marker-circle',
+                type: 'circle',
                 source: 'location-marker',
-                layout: {
-                    'icon-image': 'arrow',
-                    'icon-size': 1,  // Keep at 1 since we increased the canvas size
-                    'icon-rotate': ['get', 'bearing'],
-                    'icon-rotation-alignment': 'map',
-                    'icon-allow-overlap': true,
-                    'icon-ignore-placement': true
+                paint: {
+                    'circle-radius': 8,
+                    'circle-color': '#0066FF',
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#FFFFFF'
                 }
             });
 
@@ -1413,27 +1381,7 @@
                 });
         }
 
-        // Keep track of previous position to calculate bearing
-        let previousPosition = null;
-
-        // Function to calculate bearing between two points
-        function calculateBearing(lat1, lon1, lat2, lon2) {
-            const toRad = (deg) => deg * Math.PI / 180;
-            const toDeg = (rad) => rad * 180 / Math.PI;
-            
-            const dLon = toRad(lon2 - lon1);
-            const lat1Rad = toRad(lat1);
-            const lat2Rad = toRad(lat2);
-            
-            const y = Math.sin(dLon) * Math.cos(lat2Rad);
-            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
-                     Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
-            
-            let bearing = toDeg(Math.atan2(y, x));
-            return (bearing + 360) % 360;
-        }
-
-        // Function to update location and calculate bearing from movement
+        // Function to update location
         function updateLocation(position) {
             if (!map.getSource('location-marker')) {
                 console.warn('Location marker source not found');
@@ -1441,52 +1389,16 @@
             }
             
             const coords = [position.coords.longitude, position.coords.latitude];
-            let bearing = 0;
             
-            // Calculate bearing if we have a previous position
-            if (previousPosition) {
-                bearing = calculateBearing(
-                    previousPosition.coords.latitude,
-                    previousPosition.coords.longitude,
-                    position.coords.latitude,
-                    position.coords.longitude
-                );
-                console.log('New position:', {
-                    from: [previousPosition.coords.latitude, previousPosition.coords.longitude],
-                    to: [position.coords.latitude, position.coords.longitude],
-                    bearing: bearing
-                });
-            }
-            
-            // Store current position for next update
-            previousPosition = {
-                coords: {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                }
-            };
-            
-            // Update the marker position and bearing
+            // Update the marker position
             map.getSource('location-marker').setData({
                 type: 'Feature',
                 geometry: {
                     type: 'Point',
                     coordinates: coords
-                },
-                properties: {
-                    bearing: bearing
                 }
             });
         }
-
-        // Start tracking location when the map loads
-        navigator.geolocation.watchPosition(updateLocation, (error) => {
-            console.error('Error getting location:', error);
-        }, {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 1000
-        });
 
     </script>
 </body>
