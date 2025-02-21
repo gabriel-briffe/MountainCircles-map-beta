@@ -469,6 +469,11 @@
                 background: rgba(20, 20, 20, 1);
             }
         }
+
+        /* Add CSS for the cache button */
+        #cacheCurrentConfigBtn {
+            transition: border 0.3s, box-shadow 0.3s;
+        }
     </style>
 </head>
 <body>
@@ -553,7 +558,7 @@
                 <span>Open IGC File</span>
             </button>
             <!-- Add this after the IGC File button in the popup menu -->
-            <div style="margin-top: 15px;">
+            <div style="margin-top: 15px; display: none;">
                 <button id="cacheCurrentConfigBtn" class="config-button" style="display: flex; align-items: center; gap: 8px;">
                     <span class="material-icons-round">download</span>
                     <span>Cache Current Config for Offline Use</span>
@@ -717,6 +722,11 @@
             }
             if (map.getLayer('location-marker-circle')) {
                 map.moveLayer('location-marker-circle');
+            }
+
+            // Update cache button style when config changes
+            if (isRunningStandalone() && isMobileDevice()) {
+                updateCacheButtonStyle();
             }
         }
 
@@ -1317,6 +1327,17 @@
             if (navigator.onLine) {
                 map.once('idle', hideLoadingMessage);
             }
+
+            // Check if we should show the cache button
+            const cacheButton = document.getElementById('cacheCurrentConfigBtn');
+            const cacheContainer = cacheButton.parentElement;
+            
+            if (isRunningStandalone() && isMobileDevice()) {
+                cacheContainer.style.display = 'block';
+                updateCacheButtonStyle(); // Initialize button style
+            } else {
+                cacheContainer.style.display = 'none';
+            }
         });
         
 
@@ -1741,6 +1762,8 @@
                         navigator.serviceWorker.removeEventListener('message', messageHandler);
                         document.getElementById('cacheProgress').style.display = 'none';
                         progressBar.style.width = '0%';
+                        // Update button style after caching
+                        updateCacheButtonStyle();
                     }
                 };
                 
@@ -1768,6 +1791,52 @@
 
         // Add click handler for the cache button
         document.getElementById('cacheCurrentConfigBtn').addEventListener('click', cacheConfigurationFiles);
+
+        // Add these functions at the top of your script section
+        function isRunningStandalone() {
+            return (window.matchMedia('(display-mode: standalone)').matches) || 
+                   (window.navigator.standalone) || // for iOS
+                   document.referrer.includes('android-app://');
+        }
+
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        /* Add this function to check if a configuration is cached */
+        async function isConfigCached(config) {
+            const configParts = config.split('/');
+            const policy = configParts[0];
+            const configPrefix = configParts[1].split('-').slice(0, 3).join('-');
+            const mainGeojsonUrl = `${BASE_PATH}/${config}/aa_${policy}_${configPrefix}.geojson`;
+            
+            try {
+                // Check in both caches
+                const dynamicCache = await caches.open(DYNAMIC_CACHE_NAME);
+                const geojsonCache = await caches.open(GEOJSON_CACHE_NAME);
+                
+                // Check if the main layer exists in either cache
+                const dynamicMatch = await dynamicCache.match(mainGeojsonUrl);
+                const geojsonMatch = await geojsonCache.match(mainGeojsonUrl);
+                
+                return !!(dynamicMatch || geojsonMatch);
+            } catch (error) {
+                console.error('Error checking cache:', error);
+                return false;
+            }
+        }
+
+        /* Add this function to update the button style */
+        async function updateCacheButtonStyle() {
+            const button = document.getElementById('cacheCurrentConfigBtn');
+            if (await isConfigCached(currentConfig)) {
+                button.style.border = '2px solid #4CAF50'; // Green border
+                button.style.boxShadow = '0 0 5px #4CAF50'; // Optional: add a glow effect
+            } else {
+                button.style.border = 'none';
+                button.style.boxShadow = 'none';
+            }
+        }
 
     </script>
 </body>
