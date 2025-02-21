@@ -1340,19 +1340,13 @@
             const cacheButton = document.getElementById('cacheCurrentConfigBtn');
             const cacheContainer = cacheButton.parentElement;
 
-            // Show cache controls for all environments (for debugging)
-            cacheContainer.style.display = 'block';
-            updateCacheButtonStyle(); // Initialize button style
-
-            // Remove or comment out the conditional check
-            /*
-            if (isRunningStandalone() && isMobileDevice()) {
-                cacheContainer.style.display = 'block';
-                updateCacheButtonStyle();
-            } else {
-                cacheContainer.style.display = 'none';
-            }
-            */
+            // Show cache controls and style consistently with other popup elements
+            cacheContainer.style.display = 'flex';
+            cacheContainer.style.justifyContent = 'center';
+            cacheContainer.style.alignItems = 'center';
+            cacheContainer.style.gap = '5px';
+            cacheContainer.style.marginBottom = '15px';
+            cacheContainer.style.width = '100%';  // Take full width like other sections
         });
         
         // Helper function to check if running in standalone mode
@@ -1763,8 +1757,6 @@
                         navigator.serviceWorker.removeEventListener('message', messageHandler);
                         document.getElementById('cacheProgress').style.display = 'none';
                         progressBar.style.width = '0%';
-                        // Update button style after caching
-                        updateCacheButtonStyle();
                     }
                 };
                 
@@ -1804,12 +1796,12 @@
 
         /* Update the function to check if a configuration is cached */
         async function isConfigCached(config) {
-            alert('Checking cache for config: ' + config);
+            // alert('Checking cache for config: ' + config);
             const configParts = config.split('/');
             const policy = configParts[0];
             const configPrefix = configParts[1].split('-').slice(0, 3).join('-');
             const mainGeojsonUrl = `${BASE_PATH}/${config}/aa_${policy}_${configPrefix}.geojson`;
-            alert('Looking for URL in cache: ' + mainGeojsonUrl);
+            // alert('Looking for URL in cache: ' + mainGeojsonUrl);
             
             try {
                 const cache = await caches.open('mountaincircles-dynamic-v1');
@@ -1841,14 +1833,6 @@
                 }
             }
             // alert('Finished updating button styles');
-        }
-
-        // Also update the cache button style separately
-        async function updateCacheButtonStyle() {
-            const button = document.getElementById('cacheCurrentConfigBtn');
-            const isCached = await isConfigCached(currentConfig);
-            button.style.border = isCached ? '2px solid #4CAF50' : 'none';
-            button.style.boxShadow = isCached ? '0 0 5px #4CAF50' : 'none';
         }
 
     </script>
