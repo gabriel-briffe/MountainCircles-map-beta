@@ -62,8 +62,9 @@ function normalizeUrl(url) {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   
-  // Skip non-GET requests and requests to other domains
-  if (event.request.method !== 'GET' || !url.pathname.startsWith(BASE_PATH)) {
+  // Skip non-GET requests and requests to other domains that aren't glyph requests
+  if (event.request.method !== 'GET' || 
+      (!url.pathname.startsWith(BASE_PATH) && !url.pathname.includes('/font/'))) {
     return;
   }
 
@@ -76,6 +77,12 @@ self.addEventListener('fetch', event => {
   // Handle GeoJSON requests
   if (url.pathname.endsWith('.geojson')) {
     event.respondWith(handleGeoJSONRequest(event.request));
+    return;
+  }
+
+  // Handle glyph requests from maplibre
+  if (url.hostname === 'demotiles.maplibre.org' && url.pathname.includes('/font/')) {
+    event.respondWith(handleGlyphRequest(event.request));
     return;
   }
 
@@ -151,6 +158,63 @@ async function handleGeoJSONRequest(request) {
     console.error('GeoJSON fetch failed:', error);
     return new Response('GeoJSON not available offline', { status: 404 });
   }
+}
+
+// Add a function to handle glyph range requests
+async function handleGlyphRequest(request) {
+  const cache = await caches.open(CACHE_NAME);
+  let response = await cache.match(request);
+  
+  if (!response) {
+    try {
+      // The ranges we want to cache
+      const ranges = [
+        '0-255',
+        '256-511',
+        // '512-767',
+        // '768-1023',
+        // '1024-1279',
+        // '1280-1535',
+        // '1536-1791',
+        // '1792-2047',
+        // '2048-2303',
+        // '2304-2559',
+        // '2560-2815',
+        // '2816-3071',
+        // '3072-3327',
+        // '3328-3583',
+        // '3584-3839',
+        // '3840-4095'
+      ];
+
+      // The fontstack we're using
+      const fontstacks = ['Open Sans Regular'];
+
+      // If this is a glyph request, cache all ranges for this fontstack
+      if (request.url.includes('/font/')) {
+        const fontstack = fontstacks[0]; // Use the first fontstack
+        
+        // Cache all ranges for this fontstack
+        for (const range of ranges) {
+          const glyphUrl = `https://demotiles.maplibre.org/font/${fontstack}/${range}.pbf`;
+          const glyphResponse = await fetch(glyphUrl);
+          if (glyphResponse.ok) {
+            await cache.put(glyphUrl, glyphResponse.clone());
+          }
+        }
+      }
+
+      // Fetch and return the originally requested glyph file
+      response = await fetch(request);
+      if (response.ok) {
+        await cache.put(request, response.clone());
+      }
+    } catch (error) {
+      console.error('Failed to fetch glyph:', error);
+    }
+  }
+  
+  return response;
 }
 
 // Handle messages from the client
