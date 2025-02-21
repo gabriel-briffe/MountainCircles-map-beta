@@ -614,14 +614,17 @@
         function switchConfig(cfg) {
             removeDynamicLayers();
             removeGeoJSONLayers();
-            updateParametersBox(cfg.split('/')[1]);  // Pass only the config part, not the policy
+            updateParametersBox(cfg.split('/')[1]);
             currentConfig = cfg;
             currentPolicy = cfg.split('/')[0];
             addGeoJSONLayers();
             
-            // Move peaks and location marker to the top
+            // Move peaks, passes, and location marker to the top
             if (map.getLayer('peaks-symbols')) {
                 map.moveLayer('peaks-symbols');
+            }
+            if (map.getLayer('passes-symbols')) {
+                map.moveLayer('passes-symbols');
             }
             if (map.getLayer('location-marker-circle')) {
                 map.moveLayer('location-marker-circle');
@@ -1038,46 +1041,69 @@
         map.on('load', () => {
             console.log('Map load event triggered');
             
-            // First add your peaks layer
+            // Add peaks and passes sources
             map.addSource('peaks', {
                 type: 'geojson',
                 data: 'peaks.geojson'
             });
-            console.log('Added peaks source');
+            map.addSource('passes', {
+                type: 'geojson',
+                data: 'passes.geojson'
+            });
+            console.log('Added peaks and passes sources');
 
-            // Create a custom triangle image for the peaks
+            // Create triangle images for peaks and passes
             const size = 15;
             const peakImage = new Image(size, size);
-            const canvas = document.createElement('canvas');
-            canvas.width = size;
-            canvas.height = size;
-            const context = canvas.getContext('2d');
+            const passImage = new Image(size, size);
+            const peakCanvas = document.createElement('canvas');
+            const passCanvas = document.createElement('canvas');
+            peakCanvas.width = size;
+            peakCanvas.height = size;
+            passCanvas.width = size;
+            passCanvas.height = size;
+            const peakContext = peakCanvas.getContext('2d');
+            const passContext = passCanvas.getContext('2d');
             
-            // Draw brown triangle
-            context.beginPath();
-            context.moveTo(size/2, 0);
-            context.lineTo(size, size);
-            context.lineTo(0, size);
-            context.closePath();
-            context.fillStyle = '#8B4513';  // Brown color
-            context.fill();
+            // Draw brown upward triangle for peaks
+            peakContext.beginPath();
+            peakContext.moveTo(size/2, 0);
+            peakContext.lineTo(size, size);
+            peakContext.lineTo(0, size);
+            peakContext.closePath();
+            peakContext.fillStyle = '#8B4513';  // Brown color
+            peakContext.fill();
             
-            peakImage.src = canvas.toDataURL();
+            // Draw green inverted triangle for passes
+            passContext.beginPath();
+            passContext.moveTo(0, 0);
+            passContext.lineTo(size, 0);
+            passContext.lineTo(size/2, size);
+            passContext.closePath();
+            passContext.fillStyle = '#006400';  // Dark green color
+            passContext.fill();
             
-            // Add image loading handler
-            peakImage.onload = () => {
-                console.log('Peak triangle image loaded');
-                map.addImage('triangle', peakImage);
-                console.log('Added triangle image to map');
+            peakImage.src = peakCanvas.toDataURL();
+            passImage.src = passCanvas.toDataURL();
+            
+            // Add image loading handlers
+            Promise.all([
+                new Promise(resolve => peakImage.onload = resolve),
+                new Promise(resolve => passImage.onload = resolve)
+            ]).then(() => {
+                console.log('Triangle images loaded');
+                map.addImage('peak-triangle', peakImage);
+                map.addImage('pass-triangle', passImage);
+                console.log('Added triangle images to map');
 
-                // Add the peaks symbol layer after image is loaded
+                // Add the peaks symbol layer
                 map.addLayer({
                     id: 'peaks-symbols',
                     type: 'symbol',
                     source: 'peaks',
-                    minzoom: 10,  // Only show layer at zoom 10 and above
+                    minzoom: 10,
                     layout: {
-                        'icon-image': 'triangle',
+                        'icon-image': 'peak-triangle',
                         'icon-size': 1,
                         'icon-anchor': 'bottom',
                         'text-field': ['get', 'namele'],
@@ -1089,7 +1115,6 @@
                         'icon-optional': true,
                         'icon-padding': 2,
                         'symbol-spacing': 250,
-                        // Show text only at zoom 11 and above using expressions
                         'text-allow-overlap': false,
                         'text-ignore-placement': false,
                         'text-optional': true,
@@ -1102,33 +1127,65 @@
                         ]
                     },
                     paint: {
-                        'text-color': '#000',
+                        'text-color': '#654321',  // Dark brown color for peak labels
                         'text-halo-color': '#fff',
                         'text-halo-width': 2
                     }
                 });
-                console.log('Added peaks symbol layer');
-            };
 
-            // Add error handling for the peaks source
+                // Add the passes symbol layer
+                map.addLayer({
+                    id: 'passes-symbols',
+                    type: 'symbol',
+                    source: 'passes',
+                    minzoom: 10,
+                    layout: {
+                        'icon-image': 'pass-triangle',
+                        'icon-size': 1,
+                        'icon-anchor': 'top',  // Inverted triangle, so anchor at top
+                        'text-field': ['get', 'namele'],
+                        'text-size': baseTextSize,
+                        'text-anchor': 'bottom',  // Text below the triangle
+                        'text-offset': [0, 0.5],
+                        'icon-allow-overlap': false,
+                        'icon-ignore-placement': false,
+                        'icon-optional': true,
+                        'icon-padding': 2,
+                        'symbol-spacing': 250,
+                        'text-allow-overlap': false,
+                        'text-ignore-placement': false,
+                        'text-optional': true,
+                        'text-padding': 2,
+                        'text-field': [
+                            'step',
+                            ['zoom'],
+                            '',  // Default (no text)
+                            11, ['get', 'namele']  // At zoom 11 and above, show the name
+                        ]
+                    },
+                    paint: {
+                        'text-color': '#006400',  // Dark green color for pass labels
+                        'text-halo-color': '#fff',
+                        'text-halo-width': 2
+                    }
+                });
+                console.log('Added peaks and passes symbol layers');
+            });
+
+            // Add error handling for both sources
             map.on('sourcedata', (e) => {
-                if (e.sourceId === 'peaks' && e.isSourceLoaded) {
-                    const peaksSource = map.getSource('peaks');
-                    if (peaksSource) {
-                        const data = peaksSource._data;
-                        console.log('Peaks source data loaded:', data);
+                if ((e.sourceId === 'peaks' || e.sourceId === 'passes') && e.isSourceLoaded) {
+                    const source = map.getSource(e.sourceId);
+                    if (source) {
+                        const data = source._data;
+                        console.log(`${e.sourceId} source data loaded:`, data);
                         if (!data || !data.features || !data.features.length) {
-                            console.warn('Peaks source loaded but contains no features');
+                            console.warn(`${e.sourceId} source loaded but contains no features`);
                         } else {
-                            console.log(`Loaded ${data.features.length} peak features`);
+                            console.log(`Loaded ${data.features.length} ${e.sourceId} features`);
                         }
                     }
                 }
-            });
-
-            // Add error handling for the layer
-            map.on('error', (e) => {
-                console.error('Map error:', e.error);
             });
 
             // Then add your other layers
