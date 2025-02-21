@@ -1036,32 +1036,14 @@
         
         // Attach layers and events once the map has fully loaded.
         map.on('load', () => {
+            console.log('Map load event triggered');
+            
             // First add your peaks layer
             map.addSource('peaks', {
                 type: 'geojson',
                 data: 'peaks.geojson'
             });
-
-            // Add the peaks symbol layer
-            map.addLayer({
-                id: 'peaks-symbols',
-                type: 'symbol',
-                source: 'peaks',
-                layout: {
-                    'icon-image': 'triangle',
-                    'icon-size': 1,
-                    'icon-anchor': 'bottom',
-                    'text-field': ['get', 'namele'],
-                    'text-size': baseTextSize,
-                    'text-anchor': 'top',
-                    'text-offset': [0, 0.5]
-                },
-                paint: {
-                    'text-color': '#000',
-                    'text-halo-color': '#fff',
-                    'text-halo-width': 2
-                }
-            });
+            console.log('Added peaks source');
 
             // Create a custom triangle image for the peaks
             const size = 15;
@@ -1082,7 +1064,55 @@
             
             peakImage.src = canvas.toDataURL();
             
-            map.addImage('triangle', peakImage);
+            // Add image loading handler
+            peakImage.onload = () => {
+                console.log('Peak triangle image loaded');
+                map.addImage('triangle', peakImage);
+                console.log('Added triangle image to map');
+
+                // Add the peaks symbol layer after image is loaded
+                map.addLayer({
+                    id: 'peaks-symbols',
+                    type: 'symbol',
+                    source: 'peaks',
+                    layout: {
+                        'icon-image': 'triangle',
+                        'icon-size': 1,
+                        'icon-anchor': 'bottom',
+                        'text-field': ['get', 'namele'],
+                        'text-size': baseTextSize,
+                        'text-anchor': 'top',
+                        'text-offset': [0, 0.5]
+                    },
+                    paint: {
+                        'text-color': '#000',
+                        'text-halo-color': '#fff',
+                        'text-halo-width': 2
+                    }
+                });
+                console.log('Added peaks symbol layer');
+            };
+
+            // Add error handling for the peaks source
+            map.on('sourcedata', (e) => {
+                if (e.sourceId === 'peaks' && e.isSourceLoaded) {
+                    const peaksSource = map.getSource('peaks');
+                    if (peaksSource) {
+                        const data = peaksSource._data;
+                        console.log('Peaks source data loaded:', data);
+                        if (!data || !data.features || !data.features.length) {
+                            console.warn('Peaks source loaded but contains no features');
+                        } else {
+                            console.log(`Loaded ${data.features.length} peak features`);
+                        }
+                    }
+                }
+            });
+
+            // Add error handling for the layer
+            map.on('error', (e) => {
+                console.error('Map error:', e.error);
+            });
 
             // Then add your other layers
             addGeoJSONLayers();
