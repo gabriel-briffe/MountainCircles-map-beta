@@ -158,22 +158,31 @@ self.addEventListener('message', async (event) => {
   if (event.data.type === 'cacheFiles') {
     const cache = await caches.open(DYNAMIC_CACHE_NAME);
     let completed = 0;
+    const total = event.data.files.length;
     
-    for (const file of event.data.files) {
-      try {
-        const url = new URL(file, self.location.origin).href;
-        const response = await fetch(url);
-        if (response.ok) {
-          await cache.put(url, response);
-          completed++;
-          event.source.postMessage({
-            type: 'cacheProgress',
-            completed: completed
-          });
+    // Process files in smaller batches to avoid overwhelming the browser
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < event.data.files.length; i += BATCH_SIZE) {
+      const batch = event.data.files.slice(i, i + BATCH_SIZE);
+      
+      await Promise.allSettled(batch.map(async (file) => {
+        try {
+          const url = new URL(file, self.location.origin).href;
+          const response = await fetch(url);
+          if (response.ok) {
+            await cache.put(url, response);
+            completed++;
+            // Send progress update after each successful cache
+            event.source.postMessage({
+              type: 'cacheProgress',
+              completed: completed,
+              total: total
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to cache ${file}:`, error);
         }
-      } catch (error) {
-        console.error(`Failed to cache ${file}:`, error);
-      }
+      }));
     }
   }
 }); 
