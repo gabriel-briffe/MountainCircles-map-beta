@@ -671,6 +671,11 @@
                 btn.textContent = cfg.split('-')[0];  // Use first part as button label
                 btn.className = 'config-button';
                 const fullConfig = policy + '/' + cfg;  // Store the full config path
+                
+                // Set the data-config attribute explicitly
+                btn.setAttribute('data-config', fullConfig);
+                alert(`Created button with config: ${fullConfig}`);  // Debug alert
+                
                 btn.onclick = () => {
                     switchConfig(fullConfig);
                     document.getElementById('popupMenu').style.display = "none";
@@ -1822,17 +1827,18 @@
         /* Update the button style function to only target config buttons */
         async function updateConfigButtonStyles() {
             alert('Starting to update button styles');
-            // Specifically target buttons within .config-buttons containers
             const buttons = document.querySelectorAll('.config-buttons .config-button');
             alert(`Found ${buttons.length} config buttons`);
             
             for (const button of buttons) {
                 const buttonConfig = button.getAttribute('data-config');
-                alert(`Button config: ${buttonConfig}`);
+                alert(`Checking button with config: ${buttonConfig}`);  // More detailed debug
                 if (buttonConfig) {
                     const isCached = await isConfigCached(buttonConfig);
-                    alert(`Setting border for ${buttonConfig}: ${isCached}`);
+                    alert(`Cache result for ${buttonConfig}: ${isCached}`);
                     button.style.border = isCached ? '2px solid #4CAF50' : 'none';
+                } else {
+                    alert('Button has no config data!');  // Debug for missing data
                 }
             }
             alert('Finished updating button styles');
