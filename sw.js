@@ -171,16 +171,30 @@ self.addEventListener('message', async (event) => {
       try {
         // Use ./ for relative paths
         const url = new URL(`./${file}`, self.location.origin + BASE_PATH).href;
+        event.source.postMessage({
+          type: 'cacheProgress',
+          message: `Attempting to fetch: ${url}`,
+          completed: completed,
+          total: total,
+          currentFile: file
+        });
+        
         const response = await fetch(url);
         if (response.ok) {
           await cache.put(url, response);
           completed++;
-          // Send progress update after each successful cache
+          // Send progress update for each file
           event.source.postMessage({
             type: 'cacheProgress',
+            message: `Successfully cached: ${file}`,
             completed: completed,
             total: total,
             currentFile: file
+          });
+        } else {
+          event.source.postMessage({
+            type: 'cacheError',
+            message: `Failed to fetch ${file}: ${response.status} ${response.statusText}`
           });
         }
       } catch (error) {

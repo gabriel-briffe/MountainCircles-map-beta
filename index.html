@@ -1723,13 +1723,14 @@
                         alert(event.data.message);
                     }
                     else if (event.data.type === 'cacheProgress') {
+                        // Update progress for every file
                         cacheCount.textContent = event.data.completed;
                         const percentage = (event.data.completed / event.data.total) * 100;
                         progressBar.style.width = `${percentage}%`;
                         
-                        // Show progress every 10 files
-                        if (event.data.completed % 10 === 0) {
-                            alert(`Progress: ${event.data.completed}/${event.data.total}`);
+                        // Show alert for the current operation
+                        if (event.data.message) {
+                            alert(event.data.message);
                         }
                     }
                     else if (event.data.type === 'cacheError') {
