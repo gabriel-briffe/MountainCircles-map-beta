@@ -480,6 +480,11 @@
             position: relative; /* Ensure border works correctly */
             box-sizing: border-box; /* Include border in element size */
         }
+
+        /* Style for cached configuration buttons */
+        .cached-config {
+            border: 2px solid #4CAF50; /* Green border */
+        }
     </style>
 </head>
 <body>
@@ -592,6 +597,7 @@
     </div>
 
     <script>
+        const BASE_PATH = '/MountainCircles-map-beta';
 
         const customStyle = {
             "version": 8,
@@ -665,7 +671,6 @@
                 btn.textContent = cfg.split('-')[0];  // Use first part as button label
                 btn.className = 'config-button';
                 const fullConfig = policy + '/' + cfg;  // Store the full config path
-                btn.setAttribute('data-config', fullConfig);  // Store config in data attribute
                 btn.onclick = () => {
                     switchConfig(fullConfig);
                     document.getElementById('popupMenu').style.display = "none";
