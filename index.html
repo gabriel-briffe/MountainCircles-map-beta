@@ -674,7 +674,6 @@
                 
                 // Set the data-config attribute explicitly
                 btn.setAttribute('data-config', fullConfig);
-                alert(`Created button with config: ${fullConfig}`);  // Debug alert
                 
                 btn.onclick = () => {
                     switchConfig(fullConfig);
@@ -1759,7 +1758,7 @@
                         // alert(event.data.message);
                     }
                     else if (event.data.type === 'cacheComplete') {
-                        alert('Cache complete - updating button styles');
+                        // alert('Cache complete - updating button styles');
                         updateConfigButtonStyles();
                         navigator.serviceWorker.removeEventListener('message', messageHandler);
                         document.getElementById('cacheProgress').style.display = 'none';
@@ -1816,32 +1815,32 @@
                 const cache = await caches.open('mountaincircles-dynamic-v1');
                 const response = await cache.match(mainGeojsonUrl);
                 const isCached = !!response;
-                alert(`Cache result for ${mainGeojsonUrl}: ${isCached}`);
+                // alert(`Cache result for ${mainGeojsonUrl}: ${isCached}`);
                 return isCached;
             } catch (error) {
-                alert('Error checking cache: ' + error);
+                // alert('Error checking cache: ' + error);
                 return false;
             }
         }
 
         /* Update the button style function to only target config buttons */
         async function updateConfigButtonStyles() {
-            alert('Starting to update button styles');
+            // alert('Starting to update button styles');
             const buttons = document.querySelectorAll('.config-buttons .config-button');
-            alert(`Found ${buttons.length} config buttons`);
+            // alert(`Found ${buttons.length} config buttons`);
             
             for (const button of buttons) {
                 const buttonConfig = button.getAttribute('data-config');
-                alert(`Checking button with config: ${buttonConfig}`);  // More detailed debug
+                // alert(`Checking button with config: ${buttonConfig}`);  // More detailed debug
                 if (buttonConfig) {
                     const isCached = await isConfigCached(buttonConfig);
-                    alert(`Cache result for ${buttonConfig}: ${isCached}`);
+                    // alert(`Cache result for ${buttonConfig}: ${isCached}`);
                     button.style.border = isCached ? '2px solid #4CAF50' : 'none';
                 } else {
-                    alert('Button has no config data!');  // Debug for missing data
+                    // alert('Button has no config data!');  // Debug for missing data
                 }
             }
-            alert('Finished updating button styles');
+            // alert('Finished updating button styles');
         }
 
         // Also update the cache button style separately
