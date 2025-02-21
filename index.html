@@ -1702,7 +1702,7 @@
             
             try {
                 // First, fetch the main GeoJSON to get the point features
-                const mainGeojsonUrl = `${currentConfig}/aa_${policy}_${configPrefix}.geojson`;
+                const mainGeojsonUrl = `./${currentConfig}/aa_${policy}_${configPrefix}.geojson`;
                 alert(`Fetching main GeoJSON from: ${mainGeojsonUrl}`);
                 
                 const response = await fetch(mainGeojsonUrl);
@@ -1770,5 +1770,4 @@
 
     </script>
 </body>
-</html>
 </html>

@@ -169,7 +169,8 @@ self.addEventListener('message', async (event) => {
     // Process files one at a time to ensure reliable progress updates
     for (const file of event.data.files) {
       try {
-        const url = new URL(file, self.location.origin).href;
+        // Use ./ for relative paths
+        const url = new URL(`./${file}`, self.location.origin + BASE_PATH).href;
         const response = await fetch(url);
         if (response.ok) {
           await cache.put(url, response);
