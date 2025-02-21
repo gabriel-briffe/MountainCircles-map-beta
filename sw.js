@@ -1,41 +1,41 @@
 // Service Worker File: sw.js
 
-const CACHE_NAME = 'mountain-circles-cache-v1';
+const CACHE_NAME = 'mountaincircles-v1';
+const TILE_CACHE_NAME = 'mountaincircles-tiles-v1';
+
 // Global counter for the number of network fetches served (i.e., when there's no cached response)
 let networkFetchCount = 0;
 
-// Files to pre-cache (we're not caching HTML files)
-/* We leave this empty (or only include non-HTML assets) since you mentioned
-   you don't want to cache any HTML pages because they will evolve. */
-const FILES_TO_CACHE = [];
+// Resources to cache immediately on install
+const INITIAL_CACHE_URLS = [
+  '/MountainCircles-map-beta/',
+  '/MountainCircles-map-beta/index.html',
+  '/MountainCircles-map-beta/manifest.json',
+  '/MountainCircles-map-beta/peaks.geojson',
+  '/MountainCircles-map-beta/passes.geojson',
+  'https://cdn.jsdelivr.net/npm/maplibre-gl@latest/dist/maplibre-gl.js',
+  'https://cdn.jsdelivr.net/npm/maplibre-gl@latest/dist/maplibre-gl.css',
+  'https://fonts.googleapis.com/icon?family=Material+Icons+Round'
+];
 
-// Install event: Pre-cache essential files.
-self.addEventListener('install', (event) => {
-  // console.log('[Service Worker] Install event');
+// Install event - cache initial resources
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      // console.log('[Service Worker] Pre-caching assets:', FILES_TO_CACHE);
-      return cache.addAll(FILES_TO_CACHE).catch((error) => {
-        console.error('[Service Worker] Pre-caching failed:', error);
-      });
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(INITIAL_CACHE_URLS))
   );
   // Activate this SW immediately
   self.skipWaiting();
 });
 
-// Activate event: Clean up any old caches.
-self.addEventListener('activate', (event) => {
-  // console.log('[Service Worker] Activate event');
+// Activate event - clean up old caches
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.map((name) => {
-          if (name !== CACHE_NAME) {
-            // console.log('[Service Worker] Removing old cache:', name);
-            return caches.delete(name);
-          }
-        })
+        cacheNames
+          .filter(name => name.startsWith('mountaincircles-') && name !== CACHE_NAME && name !== TILE_CACHE_NAME)
+          .map(name => caches.delete(name))
       );
     })
   );
@@ -43,47 +43,54 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event: Cache every GET request.
-self.addEventListener('fetch', (event) => {
-  // Only process GET requests.
-  if (event.request.method !== 'GET') return;
-
-  // Check if the request is for HTML based on the "Accept" header.
-  // We do not cache HTML pages because they are expected to evolve.
-  const acceptHeader = event.request.headers.get('accept');
-  if (acceptHeader && acceptHeader.includes('text/html')) {
-    // Let the browser fetch HTML from the network (and do not count these).
+// Fetch event - serve from cache or network
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  
+  // Handle tile requests separately
+  if (url.pathname.includes('/tiles/')) {
+    event.respondWith(handleTileRequest(event.request));
     return;
   }
 
+  // Handle other requests
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // console.log(`[Service Worker] Serving from cache: ${event.request.url}`);
-        // Return the cached response immediately, with no refresh.
-        return cachedResponse;
-      }
-
-      // No cached response -- fetch the resource from the network.
-      return fetch(event.request)
-        .then((networkResponse) => {
-          // Increment our counter for every network fetch.
-          networkFetchCount++;
-          // console.log(`[Service Worker] Network fetch count: ${networkFetchCount}`);
-          if (networkResponse && networkResponse.status === 200) {
-            // Clone the response for caching.
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              // console.log(`[Service Worker] Fetched and caching: ${event.request.url}`);
-              cache.put(event.request, responseClone);
-            });
-          }
-          return networkResponse;
-        })
-        .catch((error) => {
-          // console.error(`[Service Worker] Fetch failed for: ${event.request.url}`, error);
-          throw error;
-        });
-    })
+    caches.match(event.request)
+      .then(response => {
+        if (response) {
+          return response;
+        }
+        return fetch(event.request)
+          .then(response => {
+            // Cache successful responses
+            if (response.ok) {
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME)
+                .then(cache => cache.put(event.request, responseToCache));
+            }
+            return response;
+          });
+      })
   );
-}); 
+});
+
+// Special handling for tile requests
+async function handleTileRequest(request) {
+  const cache = await caches.open(TILE_CACHE_NAME);
+  const cachedResponse = await cache.match(request);
+  
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.error('Tile fetch failed:', error);
+    return new Response('Tile not available offline', { status: 404 });
+  }
+} 
