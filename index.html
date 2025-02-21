@@ -665,6 +665,7 @@
                 btn.textContent = cfg.split('-')[0];  // Use first part as button label
                 btn.className = 'config-button';
                 const fullConfig = policy + '/' + cfg;  // Store the full config path
+                btn.setAttribute('data-config', fullConfig);  // Store config in data attribute
                 btn.onclick = () => {
                     switchConfig(fullConfig);
                     document.getElementById('popupMenu').style.display = "none";
@@ -1835,10 +1836,8 @@
             alert(`Found ${buttons.length} config buttons`);
             
             for (const button of buttons) {
-                // Get the config from the button's click handler
-                const buttonConfig = button.onclick.toString().match(/switchConfig\('([^']+)'\)/)?.[1];
+                const buttonConfig = button.getAttribute('data-config');
                 alert(`Button config: ${buttonConfig}`);
-                
                 if (buttonConfig) {
                     const isCached = await isConfigCached(buttonConfig);
                     alert(`Setting border for ${buttonConfig}: ${isCached}`);
