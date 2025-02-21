@@ -293,4 +293,30 @@ self.addEventListener('message', async (event) => {
       message: `Successfully cached ${completed} of ${total} files`
     });
   }
+
+  if (event.data.type === 'cacheTiles') {
+    const cache = await caches.open('mountaincircles-tiles-v1');
+    const tiles = event.data.tiles;
+    const basePath = event.data.basePath;
+
+    for (const tile of tiles) {
+      try {
+        const url = `${basePath}/${tile.z}/${tile.x}/${tile.y}.png`;
+        const response = await fetch(url);
+        if (response.ok) {
+          await cache.put(url, response);
+          // Notify the client of progress
+          event.source.postMessage({
+            type: 'cacheTileComplete'
+          });
+        }
+      } catch (error) {
+        console.error('Error caching tile:', error);
+        // Continue with next tile even if one fails
+        event.source.postMessage({
+          type: 'cacheTileComplete'
+        });
+      }
+    }
+  }
 }); 
