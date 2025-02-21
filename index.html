@@ -485,6 +485,20 @@
         .cached-config {
             border: 2px solid #4CAF50; /* Green border */
         }
+
+        /* Add to your existing CSS */
+        #cacheProgress {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .progress-bar-container {
+            width: 80%;
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -1340,13 +1354,18 @@
             const cacheButton = document.getElementById('cacheCurrentConfigBtn');
             const cacheContainer = cacheButton.parentElement;
 
-            // Show cache controls and style consistently with other popup elements
-            cacheContainer.style.display = 'flex';
+            // Style the container consistently
+            cacheContainer.style.display = 'none';  // Default to hidden
             cacheContainer.style.justifyContent = 'center';
             cacheContainer.style.alignItems = 'center';
             cacheContainer.style.gap = '5px';
             cacheContainer.style.marginBottom = '15px';
-            cacheContainer.style.width = '100%';  // Take full width like other sections
+            cacheContainer.style.width = '100%';
+
+            // Only show cache controls for installed mobile app
+            if (isRunningStandalone() && isMobileDevice()) {
+                cacheContainer.style.display = 'flex';  // Show with flex layout if conditions met
+            }
         });
         
         // Helper function to check if running in standalone mode
