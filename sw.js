@@ -58,13 +58,32 @@ function normalizeUrl(url) {
   return url.pathname.startsWith(BASE_PATH) ? url.pathname : `${BASE_PATH}${url.pathname}`;
 }
 
-// Fetch event - serve from cache or network
+// Fetch event - serve from network first for index.html and sw.js, cache first for everything else
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   
   // Skip non-GET requests and requests to other domains that aren't glyph requests
   if (event.request.method !== 'GET' || 
       (!url.pathname.startsWith(BASE_PATH) && !url.pathname.includes('/font/'))) {
+    return;
+  }
+
+  // Network-first strategy for index.html and sw.js
+  if (url.pathname.endsWith('index.html') || url.pathname.endsWith('/') || url.pathname.endsWith('sw.js')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Clone the response before caching it
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME)
+            .then(cache => cache.put(event.request, responseToCache));
+          return response;
+        })
+        .catch(() => {
+          // If network fails, try the cache
+          return caches.match(event.request);
+        })
+    );
     return;
   }
 
@@ -86,7 +105,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Handle other requests
+  // Cache-first strategy for all other requests
   event.respondWith(
     caches.match(event.request)
       .then(response => {
