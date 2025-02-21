@@ -1650,13 +1650,18 @@
             document.getElementById('installPrompt').style.display = 'none';
         });
 
-        // Update your existing service worker registration to include offline page handling
+        // Update your service worker registration
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/MountainCircles-map-beta/sw.js', {
                 scope: '/MountainCircles-map-beta/'
             })
-            .then(registration => {
+            .then(async registration => {
                 console.log('Service Worker registered with scope:', registration.scope);
+                
+                // Force update
+                if (registration.active) {
+                    registration.update();
+                }
             })
             .catch(error => {
                 console.error('Service Worker registration failed:', error);
