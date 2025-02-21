@@ -1075,6 +1075,7 @@
                     id: 'peaks-symbols',
                     type: 'symbol',
                     source: 'peaks',
+                    minzoom: 10,  // Only show layer at zoom 10 and above
                     layout: {
                         'icon-image': 'triangle',
                         'icon-size': 1,
@@ -1083,19 +1084,22 @@
                         'text-size': baseTextSize,
                         'text-anchor': 'top',
                         'text-offset': [0, 0.5],
-                        // Only show icons at zoom 10 and above
                         'icon-allow-overlap': false,
                         'icon-ignore-placement': false,
                         'icon-optional': true,
                         'icon-padding': 2,
                         'symbol-spacing': 250,
-                        'icon-visibility': ['step', ['zoom'], 'none', 10, 'visible'],
-                        // Only show text at zoom 11 and above
+                        // Show text only at zoom 11 and above using expressions
                         'text-allow-overlap': false,
                         'text-ignore-placement': false,
                         'text-optional': true,
                         'text-padding': 2,
-                        'text-visibility': ['step', ['zoom'], 'none', 11, 'visible']
+                        'text-field': [
+                            'step',
+                            ['zoom'],
+                            '',  // Default (no text)
+                            11, ['get', 'namele']  // At zoom 11 and above, show the name
+                        ]
                     },
                     paint: {
                         'text-color': '#000',
