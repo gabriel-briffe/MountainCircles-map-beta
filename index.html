@@ -669,12 +669,12 @@
                 const btn = document.createElement('button');
                 btn.textContent = cfg.split('-')[0];  // Use first part as button label
                 btn.className = 'config-button';
-                btn.addEventListener('click', () => {
-                    const newConfig = policy + '/' + cfg;
-                    switchConfig(newConfig);
+                const fullConfig = policy + '/' + cfg;  // Store the full config path
+                btn.onclick = () => {
+                    switchConfig(fullConfig);
                     document.getElementById('popupMenu').style.display = "none";
-                    console.log("Switched to configuration: " + newConfig);
-                });
+                    console.log("Switched to configuration: " + fullConfig);
+                };
                 configButtonsContainer.appendChild(btn);
             });
             
@@ -1370,6 +1370,13 @@
             }
         }
 
+        // Helper function to check if running in standalone mode
+        function isRunningStandalone() {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.navigator.standalone ||  // for iOS
+                   document.referrer.includes('android-app://');
+        }
+
         // Keep the existing event listeners
         updateConnectionMessage();
         window.addEventListener('offline', updateConnectionMessage);
@@ -1387,6 +1394,7 @@
         const popupMenu = document.getElementById('popupMenu');
         document.getElementById('moreOptionsBtn').addEventListener('click', () => {
             popupMenu.style.display = "flex";
+            updateConfigButtonStyles();
         });
         document.getElementById('closePopupBtn').addEventListener('click', () => {
             popupMenu.style.display = "none";
@@ -1730,7 +1738,7 @@
             try {
                 // First, fetch the main GeoJSON to get the point features
                 const mainGeojsonUrl = `./${currentConfig}/aa_${policy}_${configPrefix}.geojson`;
-                // alert(`Fetching main GeoJSON from: ${mainGeojsonUrl}`);
+                const sectorsGeojsonUrl = `./${currentConfig}/aa_${policy}_${configPrefix}_sectors1.geojson`;
                 
                 const response = await fetch(mainGeojsonUrl);
                 const data = await response.json();
@@ -1739,10 +1747,16 @@
                 const pointFeatures = data.features.filter(f => 
                     f.geometry.type === 'Point' && f.properties.filename);
                 
-                // Update total files count
-                const total = pointFeatures.length;
+                // Create list of files to cache, including the main GeoJSON files
+                const files = [
+                    `${currentConfig}/aa_${policy}_${configPrefix}.geojson`,
+                    `${currentConfig}/aa_${policy}_${configPrefix}_sectors1.geojson`,
+                    ...pointFeatures.map(f => `${currentConfig}/${f.properties.filename}`)
+                ];
+                
+                // Update total files count (including main files)
+                const total = files.length;
                 totalFiles.textContent = total;
-                // alert(`Found ${total} files to cache`);
                 
                 // Create message handler before sending message
                 const messageHandler = (event) => {
@@ -1770,6 +1784,7 @@
                         progressBar.style.width = '0%';
                         // Update button style after caching
                         updateCacheButtonStyle();
+                        updateConfigButtonStyles();
                     }
                 };
                 
@@ -1778,8 +1793,6 @@
                 
                 // Send message to service worker
                 const registration = await navigator.serviceWorker.ready;
-                const files = pointFeatures.map(f => 
-                    `${currentConfig}/${f.properties.filename}`);
                 
                 // alert('Sending cache request to Service Worker');
                 registration.active.postMessage({
@@ -1800,8 +1813,8 @@
 
         // Add these functions at the top of your script section
         function isRunningStandalone() {
-            return (window.matchMedia('(display-mode: standalone)').matches) || 
-                   (window.navigator.standalone) || // for iOS
+            return window.matchMedia('(display-mode: standalone)').matches || 
+                   window.navigator.standalone || // for iOS
                    document.referrer.includes('android-app://');
         }
 
@@ -1814,24 +1827,13 @@
             const configParts = config.split('/');
             const policy = configParts[0];
             const configPrefix = configParts[1].split('-').slice(0, 3).join('-');
-            // Use the same URL construction as in cacheConfigurationFiles
-            const mainGeojsonUrl = new URL(
-                `${BASE_PATH}/${config}/aa_${policy}_${configPrefix}.geojson`,
-                self.location.origin
-            ).href;
+            const mainGeojsonUrl = `${BASE_PATH}/${config}/aa_${policy}_${configPrefix}.geojson`;
             
             try {
-                // Check in both caches
-                const dynamicCache = await caches.open(DYNAMIC_CACHE_NAME);
-                const geojsonCache = await caches.open(GEOJSON_CACHE_NAME);
-                
-                // Check if the main layer exists in either cache
-                const dynamicMatch = await dynamicCache.match(mainGeojsonUrl);
-                const geojsonMatch = await geojsonCache.match(mainGeojsonUrl);
-                
-                const isCached = !!(dynamicMatch || geojsonMatch);
-                console.log('Cache status:', isCached, 'for URL:', mainGeojsonUrl); // Debug log
-                return isCached;
+                // Check if the main GeoJSON exists in the dynamic cache
+                const cache = await caches.open('mountaincircles-dynamic-v1');
+                const response = await cache.match(mainGeojsonUrl);
+                return !!response; // Convert to boolean
             } catch (error) {
                 console.error('Error checking cache:', error);
                 return false;
@@ -1850,6 +1852,19 @@
             } else {
                 button.style.border = 'none';
                 button.style.boxShadow = 'none';
+            }
+        }
+
+        // Add this function to update the button styles
+        async function updateConfigButtonStyles() {
+            const buttons = document.querySelectorAll('.config-button');
+            for (const button of buttons) {
+                // Get the config from the button's click handler
+                const buttonConfig = button.onclick.toString().match(/switchConfig\('([^']+)'\)/)?.[1];
+                if (buttonConfig) {
+                    const isCached = await isConfigCached(buttonConfig);
+                    button.style.border = isCached ? '2px solid #4CAF50' : 'none';
+                }
             }
         }
 
