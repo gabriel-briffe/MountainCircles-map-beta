@@ -1658,26 +1658,28 @@
         let deferredPrompt;
 
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent Chrome 67 and earlier from automatically showing the prompt
-            e.preventDefault();
-            // Stash the event so it can be triggered later
-            deferredPrompt = e;
-            // Show the install prompt
-            document.getElementById('installPrompt').style.display = 'block';
+            // Only show install prompt on mobile devices
+            if (isMobileDevice()) {
+                // Stash the event so it can be triggered later
+                deferredPrompt = e;
+                
+                // Show the install prompt
+                document.getElementById('installPrompt').style.display = 'block';
+            } else {
+                // Hide the prompt on non-mobile devices
+                document.getElementById('installPrompt').style.display = 'none';
+            }
         });
 
         // Installation prompt handlers
         document.getElementById('installButton').addEventListener('click', async () => {
             if (deferredPrompt) {
-                // Show the install prompt
-                deferredPrompt.prompt();
-                // Wait for the user to respond to the prompt
+                await deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 console.log(`User response to the install prompt: ${outcome}`);
-                // Clear the deferredPrompt variable
                 deferredPrompt = null;
+                document.getElementById('installPrompt').style.display = 'none';
             }
-            document.getElementById('installPrompt').style.display = 'none';
         });
 
         document.getElementById('cancelInstall').addEventListener('click', () => {
@@ -1687,7 +1689,7 @@
         // Update your service worker registration
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register(`${BASE_PATH}/sw.js`, {
-                scope: BASE_PATH
+                scope: `${BASE_PATH}/`  // Add trailing slash
             })
             .then(async registration => {
                 console.log('Service Worker registered with scope:', registration.scope);
