@@ -1326,16 +1326,23 @@
                 map.on('click', 'points-layer-clickable', handlePointClick);
             }
 
-            // Check if we should show the cache button
+            // Update the cache button visibility check
             const cacheButton = document.getElementById('cacheCurrentConfigBtn');
             const cacheContainer = cacheButton.parentElement;
-            
+
+            // Show cache controls for all environments (for debugging)
+            cacheContainer.style.display = 'block';
+            updateCacheButtonStyle(); // Initialize button style
+
+            // Remove or comment out the conditional check
+            /*
             if (isRunningStandalone() && isMobileDevice()) {
                 cacheContainer.style.display = 'block';
-                updateCacheButtonStyle(); // Initialize button style
+                updateCacheButtonStyle();
             } else {
                 cacheContainer.style.display = 'none';
             }
+            */
         });
         
         // Helper function to check if running in standalone mode
