@@ -907,12 +907,15 @@
         
         // Helper to update the parameters box text based on the config folder.
         function updateParametersBox(cfg) {
-            console.log("updateParametersBox called with:", cfg);  // Debug log
-            const parts = cfg.split('-'); // e.g. ["20", "100", "250", "4200"]
-            console.log("parts after split:", parts);  // Debug log
+            console.log("updateParametersBox called with:", cfg);
+            // First split by '/' to remove the policy
+            const configOnly = cfg.split('/')[1] || cfg;  // Take second part after slash, or whole string if no slash
+            // Then split the config numbers
+            const parts = configOnly.split('-');
+            console.log("parts after split:", parts);
             if (parts.length >= 3) {
                 const labelText = "L/D " + parts[0] + "-ground " + parts[1] + "m-circuit " + parts[2] + "m";
-                console.log("setting label to:", labelText);  // Debug log
+                console.log("setting label to:", labelText);
                 document.getElementById('parametersBox').textContent = labelText;
             }
         }
