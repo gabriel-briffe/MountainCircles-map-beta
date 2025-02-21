@@ -1800,18 +1800,18 @@
 
         /* Update the function to check if a configuration is cached */
         async function isConfigCached(config) {
-            alert('Checking cache for: ' + config);
+            alert('Checking cache for config: ' + config);
             const configParts = config.split('/');
             const policy = configParts[0];
             const configPrefix = configParts[1].split('-').slice(0, 3).join('-');
             const mainGeojsonUrl = `${BASE_PATH}/${config}/aa_${policy}_${configPrefix}.geojson`;
+            alert('Looking for URL in cache: ' + mainGeojsonUrl);
             
             try {
-                // Check if the main GeoJSON exists in the dynamic cache
                 const cache = await caches.open('mountaincircles-dynamic-v1');
                 const response = await cache.match(mainGeojsonUrl);
                 const isCached = !!response;
-                alert(`Cache check result for ${config}: ${isCached}`);
+                alert(`Cache result for ${mainGeojsonUrl}: ${isCached}`);
                 return isCached;
             } catch (error) {
                 alert('Error checking cache: ' + error);
