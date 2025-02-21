@@ -1143,7 +1143,7 @@
                         'icon-image': 'pass-triangle',
                         'icon-size': 1,
                         'icon-anchor': 'top',  // Inverted triangle, so anchor at top
-                        'text-field': ['get', 'namele'],
+                        'text-field': ['get', 'name'],
                         'text-size': baseTextSize,
                         'text-anchor': 'bottom',  // Text below the triangle
                         'text-offset': [0, 0.5],
@@ -1160,7 +1160,7 @@
                             'step',
                             ['zoom'],
                             '',  // Default (no text)
-                            11, ['get', 'namele']  // At zoom 11 and above, show the name
+                            11, ['get', 'name']  // At zoom 11 and above, show the name
                         ]
                     },
                     paint: {
