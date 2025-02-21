@@ -618,6 +618,14 @@
             currentConfig = cfg;
             currentPolicy = cfg.split('/')[0];
             addGeoJSONLayers();
+            
+            // Move peaks and location marker to the top
+            if (map.getLayer('peaks-symbols')) {
+                map.moveLayer('peaks-symbols');
+            }
+            if (map.getLayer('location-marker-circle')) {
+                map.moveLayer('location-marker-circle');
+            }
         }
 
         // Update addGeoJSONLayers to use the policy name in file paths
@@ -962,6 +970,14 @@
                 });
             }
 
+            // Move peaks and location marker to the top after adding or modifying layers
+            if (map.getLayer('peaks-symbols')) {
+                map.moveLayer('peaks-symbols');
+            }
+            if (map.getLayer('location-marker-circle')) {
+                map.moveLayer('location-marker-circle');
+            }
+
             // Update the main linestring visibility icon based on current state.
             const mainVisibility = map.getLayoutProperty('linestrings-layer', 'visibility') || 'visible';
             document.getElementById('visibilityIcon').textContent = mainVisibility === 'visible' ? 'visibility' : 'visibility_off';
@@ -1020,9 +1036,58 @@
         
         // Attach layers and events once the map has fully loaded.
         map.on('load', () => {
+            // First add your peaks layer
+            map.addSource('peaks', {
+                type: 'geojson',
+                data: 'peaks.geojson'
+            });
+
+            // Add the peaks symbol layer
+            map.addLayer({
+                id: 'peaks-symbols',
+                type: 'symbol',
+                source: 'peaks',
+                layout: {
+                    'icon-image': 'triangle',
+                    'icon-size': 1,
+                    'icon-anchor': 'bottom',
+                    'text-field': ['get', 'namele'],
+                    'text-size': baseTextSize,
+                    'text-anchor': 'top',
+                    'text-offset': [0, 0.5]
+                },
+                paint: {
+                    'text-color': '#000',
+                    'text-halo-color': '#fff',
+                    'text-halo-width': 2
+                }
+            });
+
+            // Create a custom triangle image for the peaks
+            const size = 15;
+            const peakImage = new Image(size, size);
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const context = canvas.getContext('2d');
+            
+            // Draw brown triangle
+            context.beginPath();
+            context.moveTo(size/2, 0);
+            context.lineTo(size, size);
+            context.lineTo(0, size);
+            context.closePath();
+            context.fillStyle = '#8B4513';  // Brown color
+            context.fill();
+            
+            peakImage.src = canvas.toDataURL();
+            
+            map.addImage('triangle', peakImage);
+
+            // Then add your other layers
             addGeoJSONLayers();
             
-            // Create the location marker source
+            // Add location marker last
             map.addSource('location-marker', {
                 type: 'geojson',
                 data: {
@@ -1034,7 +1099,6 @@
                 }
             });
 
-            // Add a simple circle layer
             map.addLayer({
                 id: 'location-marker-circle',
                 type: 'circle',
@@ -1309,6 +1373,11 @@
                         'text-halo-width': 2
                     }
                 });
+
+                // After adding all the new layers, move the location marker to the top
+                if (map.getLayer('location-marker-circle')) {
+                    map.moveLayer('location-marker-circle');
+                }
             };
             reader.readAsText(file);
         }
