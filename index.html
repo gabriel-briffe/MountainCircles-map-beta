@@ -590,6 +590,21 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Add new section for caching background map -->
+            <div style="margin-top: 15px; display: none;">
+                <button id="cacheBackgroundMapBtn" class="config-button" style="display: flex; align-items: center; gap: 8px;">
+                    <span class="material-icons-round">map</span>
+                    <span>Cache Background Map for Offline Use</span>
+                </button>
+                <div id="mapCacheProgress" style="display: none; margin-top: 10px;">
+                    <div style="margin-bottom: 5px;">Caching tiles: <span id="mapCacheCount">0</span>/<span id="mapTotalTiles">0</span></div>
+                    <div style="width: 100%; height: 4px; background: #eee; border-radius: 2px;">
+                        <div id="mapProgressBar" style="width: 0%; height: 100%; background: #4CAF50; border-radius: 2px; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+            </div>
+
             <h3>Warning</h3>
             <p>This is a new experimental tool. Problems will arise that have not been encountered before in the gliding community.</p>
             <p>I am not sure that 100m above ground is big enough a margin to be safe above the passes.</p>
@@ -1358,19 +1373,24 @@
 
             // Update the cache button visibility check
             const cacheButton = document.getElementById('cacheCurrentConfigBtn');
+            const mapCacheButton = document.getElementById('cacheBackgroundMapBtn');
             const cacheContainer = cacheButton.parentElement;
+            const mapCacheContainer = mapCacheButton.parentElement;
 
-            // Style the container consistently
-            cacheContainer.style.display = 'none';  // Default to hidden
-            cacheContainer.style.justifyContent = 'center';
-            cacheContainer.style.alignItems = 'center';
-            cacheContainer.style.gap = '5px';
-            cacheContainer.style.marginBottom = '15px';
-            cacheContainer.style.width = '100%';
+            // Style the containers consistently
+            [cacheContainer, mapCacheContainer].forEach(container => {
+                container.style.display = 'none';  // Default to hidden
+                container.style.justifyContent = 'center';
+                container.style.alignItems = 'center';
+                container.style.gap = '5px';
+                container.style.marginBottom = '15px';
+                container.style.width = '100%';
+            });
 
             // Only show cache controls for installed mobile app
             if (isRunningStandalone() && isMobileDevice()) {
                 cacheContainer.style.display = 'flex';  // Show with flex layout if conditions met
+                mapCacheContainer.style.display = 'flex';
             }
         });
         
