@@ -169,8 +169,8 @@ self.addEventListener('message', async (event) => {
     // Process files one at a time to ensure reliable progress updates
     for (const file of event.data.files) {
       try {
-        // The file path already includes /MountainCircles-map-beta/, so we don't need to add BASE_PATH
-        const url = new URL(`.${file}`, self.location.origin).href;
+        // Construct the full URL with BASE_PATH
+        const url = new URL(`${BASE_PATH}/${file}`, self.location.origin).href;
         event.source.postMessage({
           type: 'cacheProgress',
           message: `Attempting to fetch: ${url}`,

@@ -1750,7 +1750,7 @@
                 // Send message to service worker
                 const registration = await navigator.serviceWorker.ready;
                 const files = pointFeatures.map(f => 
-                    `/MountainCircles-map-beta/${currentConfig}/${f.properties.filename}`);
+                    `${currentConfig}/${f.properties.filename}`);
                 
                 alert('Sending cache request to Service Worker');
                 registration.active.postMessage({
