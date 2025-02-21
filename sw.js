@@ -169,8 +169,8 @@ self.addEventListener('message', async (event) => {
     // Process files one at a time to ensure reliable progress updates
     for (const file of event.data.files) {
       try {
-        // Use ./ for relative paths
-        const url = new URL(`./${file}`, self.location.origin + BASE_PATH).href;
+        // The file path already includes /MountainCircles-map-beta/, so we don't need to add BASE_PATH
+        const url = new URL(`.${file}`, self.location.origin).href;
         event.source.postMessage({
           type: 'cacheProgress',
           message: `Attempting to fetch: ${url}`,
@@ -183,7 +183,6 @@ self.addEventListener('message', async (event) => {
         if (response.ok) {
           await cache.put(url, response);
           completed++;
-          // Send progress update for each file
           event.source.postMessage({
             type: 'cacheProgress',
             message: `Successfully cached: ${file}`,
