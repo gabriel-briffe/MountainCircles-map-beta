@@ -470,9 +470,15 @@
             }
         }
 
-        /* Add CSS for the cache button */
+        /* Update the CSS for the cache button */
         #cacheCurrentConfigBtn {
             transition: border 0.3s, box-shadow 0.3s;
+            border: none;
+            box-shadow: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            position: relative; /* Ensure border works correctly */
+            box-sizing: border-box; /* Include border in element size */
         }
     </style>
 </head>
@@ -1353,10 +1359,10 @@
             document.getElementById('loadingMessage').style.display = "none";
         }
 
-        // --- Connection Message Logic ---
+        // Update the connection message logic
         function updateConnectionMessage() {
             const messageDiv = document.getElementById('loadingMessage');
-            if (!navigator.onLine) {
+            if (!navigator.onLine && !isRunningStandalone()) {
                 messageDiv.textContent = "No internet connection. Please connect to the internet.";
                 messageDiv.style.display = "block";
             } else {
@@ -1364,8 +1370,8 @@
             }
         }
 
+        // Keep the existing event listeners
         updateConnectionMessage();
-
         window.addEventListener('offline', updateConnectionMessage);
         window.addEventListener('online', updateConnectionMessage);
 
@@ -1803,12 +1809,16 @@
             return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         }
 
-        /* Add this function to check if a configuration is cached */
+        /* Update the function to check if a configuration is cached */
         async function isConfigCached(config) {
             const configParts = config.split('/');
             const policy = configParts[0];
             const configPrefix = configParts[1].split('-').slice(0, 3).join('-');
-            const mainGeojsonUrl = `${BASE_PATH}/${config}/aa_${policy}_${configPrefix}.geojson`;
+            // Use the same URL construction as in cacheConfigurationFiles
+            const mainGeojsonUrl = new URL(
+                `${BASE_PATH}/${config}/aa_${policy}_${configPrefix}.geojson`,
+                self.location.origin
+            ).href;
             
             try {
                 // Check in both caches
@@ -1819,19 +1829,24 @@
                 const dynamicMatch = await dynamicCache.match(mainGeojsonUrl);
                 const geojsonMatch = await geojsonCache.match(mainGeojsonUrl);
                 
-                return !!(dynamicMatch || geojsonMatch);
+                const isCached = !!(dynamicMatch || geojsonMatch);
+                console.log('Cache status:', isCached, 'for URL:', mainGeojsonUrl); // Debug log
+                return isCached;
             } catch (error) {
                 console.error('Error checking cache:', error);
                 return false;
             }
         }
 
-        /* Add this function to update the button style */
+        /* Update the button style function to be more explicit */
         async function updateCacheButtonStyle() {
             const button = document.getElementById('cacheCurrentConfigBtn');
-            if (await isConfigCached(currentConfig)) {
-                button.style.border = '2px solid #4CAF50'; // Green border
-                button.style.boxShadow = '0 0 5px #4CAF50'; // Optional: add a glow effect
+            const isCached = await isConfigCached(currentConfig);
+            console.log('Updating button style, cached:', isCached); // Debug log
+            
+            if (isCached) {
+                button.style.border = '2px solid #4CAF50';
+                button.style.boxShadow = '0 0 5px #4CAF50';
             } else {
                 button.style.border = 'none';
                 button.style.boxShadow = 'none';
