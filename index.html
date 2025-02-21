@@ -552,6 +552,19 @@
                 <span class="material-icons-round">folder_open</span>
                 <span>Open IGC File</span>
             </button>
+            <!-- Add this after the IGC File button in the popup menu -->
+            <div style="margin-top: 15px;">
+                <button id="cacheCurrentConfigBtn" class="config-button" style="display: flex; align-items: center; gap: 8px;">
+                    <span class="material-icons-round">download</span>
+                    <span>Cache Current Config for Offline Use</span>
+                </button>
+                <div id="cacheProgress" style="display: none; margin-top: 10px;">
+                    <div style="margin-bottom: 5px;">Caching files: <span id="cacheCount">0</span>/<span id="totalFiles">0</span></div>
+                    <div style="width: 100%; height: 4px; background: #eee; border-radius: 2px;">
+                        <div id="progressBar" style="width: 0%; height: 100%; background: #4CAF50; border-radius: 2px; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+            </div>
             <h3>Warning</h3>
             <p>This is a new experimental tool. Problems will arise that have not been encountered before in the gliding community.</p>
             <p>I am not sure that 100m above ground is big enough a margin to be safe above the passes.</p>
@@ -1668,6 +1681,73 @@
                 }
             });
         }
+
+        // Add this to your existing script section
+        async function cacheConfigurationFiles() {
+            const configParts = currentConfig.split('/');
+            const policy = configParts[0];
+            const config = configParts[1];
+            const configPrefix = config.split('-').slice(0, 3).join('-');
+            
+            // Show progress UI
+            document.getElementById('cacheProgress').style.display = 'block';
+            const progressBar = document.getElementById('progressBar');
+            const cacheCount = document.getElementById('cacheCount');
+            const totalFiles = document.getElementById('totalFiles');
+            
+            try {
+                // First, fetch the main GeoJSON to get the point features
+                const mainGeojsonUrl = `${currentConfig}/aa_${policy}_${configPrefix}.geojson`;
+                const response = await fetch(mainGeojsonUrl);
+                const data = await response.json();
+                
+                // Filter for point features that have a filename property
+                const pointFeatures = data.features.filter(f => 
+                    f.geometry.type === 'Point' && f.properties.filename);
+                
+                // Update total files count
+                totalFiles.textContent = pointFeatures.length;
+                let completed = 0;
+                
+                // Send message to service worker to cache files
+                const registration = await navigator.serviceWorker.ready;
+                const files = pointFeatures.map(f => 
+                    `${currentConfig}/${f.properties.filename}`);
+                
+                // Post message to service worker
+                registration.active.postMessage({
+                    type: 'cacheFiles',
+                    files: files,
+                    config: currentConfig
+                });
+                
+                // Listen for progress updates
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data.type === 'cacheProgress') {
+                        completed = event.data.completed;
+                        cacheCount.textContent = completed;
+                        const percentage = (completed / pointFeatures.length) * 100;
+                        progressBar.style.width = `${percentage}%`;
+                        
+                        if (completed === pointFeatures.length) {
+                            setTimeout(() => {
+                                document.getElementById('cacheProgress').style.display = 'none';
+                                progressBar.style.width = '0%';
+                                alert('Caching complete! This configuration is now available offline.');
+                            }, 1000);
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error caching configuration:', error);
+                alert('Error caching configuration. Please try again.');
+                document.getElementById('cacheProgress').style.display = 'none';
+            }
+        }
+
+        // Add click handler for the cache button
+        document.getElementById('cacheCurrentConfigBtn').addEventListener('click', cacheConfigurationFiles);
 
     </script>
 </body>
