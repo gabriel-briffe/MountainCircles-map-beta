@@ -1703,6 +1703,8 @@
             try {
                 // First, fetch the main GeoJSON to get the point features
                 const mainGeojsonUrl = `${currentConfig}/aa_${policy}_${configPrefix}.geojson`;
+                alert(`Fetching main GeoJSON from: ${mainGeojsonUrl}`);
+                
                 const response = await fetch(mainGeojsonUrl);
                 const data = await response.json();
                 
@@ -1713,23 +1715,31 @@
                 // Update total files count
                 const total = pointFeatures.length;
                 totalFiles.textContent = total;
+                alert(`Found ${total} files to cache`);
                 
                 // Create message handler before sending message
                 const messageHandler = (event) => {
-                    if (event.data.type === 'cacheProgress') {
+                    if (event.data.type === 'cacheStart') {
+                        alert(event.data.message);
+                    }
+                    else if (event.data.type === 'cacheProgress') {
                         cacheCount.textContent = event.data.completed;
-                        const percentage = (event.data.completed / total) * 100;
+                        const percentage = (event.data.completed / event.data.total) * 100;
                         progressBar.style.width = `${percentage}%`;
                         
-                        if (event.data.completed === total) {
-                            // Remove the event listener once complete
-                            navigator.serviceWorker.removeEventListener('message', messageHandler);
-                            setTimeout(() => {
-                                document.getElementById('cacheProgress').style.display = 'none';
-                                progressBar.style.width = '0%';
-                                alert('Caching complete! This configuration is now available offline.');
-                            }, 1000);
+                        // Show progress every 10 files
+                        if (event.data.completed % 10 === 0) {
+                            alert(`Progress: ${event.data.completed}/${event.data.total}`);
                         }
+                    }
+                    else if (event.data.type === 'cacheError') {
+                        alert(event.data.message);
+                    }
+                    else if (event.data.type === 'cacheComplete') {
+                        alert(event.data.message);
+                        navigator.serviceWorker.removeEventListener('message', messageHandler);
+                        document.getElementById('cacheProgress').style.display = 'none';
+                        progressBar.style.width = '0%';
                     }
                 };
                 
@@ -1741,6 +1751,7 @@
                 const files = pointFeatures.map(f => 
                     `${currentConfig}/${f.properties.filename}`);
                 
+                alert('Sending cache request to Service Worker');
                 registration.active.postMessage({
                     type: 'cacheFiles',
                     files: files,
@@ -1748,8 +1759,8 @@
                 });
                 
             } catch (error) {
+                alert(`Error: ${error.message}`);
                 console.error('Error caching configuration:', error);
-                alert('Error caching configuration. Please try again.');
                 document.getElementById('cacheProgress').style.display = 'none';
             }
         }
@@ -1759,4 +1770,5 @@
 
     </script>
 </body>
+</html>
 </html>
