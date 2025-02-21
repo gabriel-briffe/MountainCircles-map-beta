@@ -439,6 +439,30 @@
                 color: #fff;
             }
         }
+
+        /* Style for layer toggle buttons */
+        #peaksToggleBtn, #passesToggleBtn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+        }
+
+        #peaksToggleBtn .material-icons-round,
+        #passesToggleBtn .material-icons-round {
+            font-size: 20px;
+        }
+
+        /* Dark mode adjustments */
+        @media (prefers-color-scheme: dark) {
+            #peaksToggleBtn, #passesToggleBtn {
+                background: rgba(20, 20, 20, 0.8);
+                color: #fff;
+            }
+            #peaksToggleBtn:hover, #passesToggleBtn:hover {
+                background: rgba(20, 20, 20, 1);
+            }
+        }
     </style>
 </head>
 <body>
@@ -506,6 +530,17 @@
             </button>
             <h3>Select Glide ratio</h3>
             <div id="policyConfigs"></div>
+            <h3>Layers</h3>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;">
+                <button id="peaksToggleBtn" class="config-button">
+                    <span class="material-icons-round" id="peaksVisibilityIcon">terrain</span>
+                    Peaks
+                </button>
+                <button id="passesToggleBtn" class="config-button">
+                    <span class="material-icons-round" id="passesVisibilityIcon">route</span>
+                    Passes
+                </button>
+            </div>
             <!-- IGC File Control with Icon -->
             <button id="igcFileButton">
                 <span class="material-icons-round">folder_open</span>
@@ -610,7 +645,31 @@
             policyConfigsContainer.appendChild(policySection);
         });
 
-        // Update the switchConfig function to handle policy prefixes
+        // Initialize visibility state
+        let peaksVisible = true;
+        let passesVisible = true;
+
+        // Function to update layer visibility and icon
+        function updateLayerVisibility(layerId, visible, iconId) {
+            if (map.getLayer(layerId)) {
+                map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+                document.getElementById(iconId).style.opacity = visible ? '1' : '0.5';
+            }
+        }
+
+        // Peaks toggle button
+        document.getElementById('peaksToggleBtn').addEventListener('click', () => {
+            peaksVisible = !peaksVisible;
+            updateLayerVisibility('peaks-symbols', peaksVisible, 'peaksVisibilityIcon');
+        });
+
+        // Passes toggle button
+        document.getElementById('passesToggleBtn').addEventListener('click', () => {
+            passesVisible = !passesVisible;
+            updateLayerVisibility('passes-symbols', passesVisible, 'passesVisibilityIcon');
+        });
+
+        // Update the switchConfig function to maintain visibility state
         function switchConfig(cfg) {
             removeDynamicLayers();
             removeGeoJSONLayers();
@@ -619,12 +678,16 @@
             currentPolicy = cfg.split('/')[0];
             addGeoJSONLayers();
             
-            // Move peaks, passes, and location marker to the top
-            if (map.getLayer('peaks-symbols')) {
-                map.moveLayer('peaks-symbols');
-            }
+            // Restore visibility states after adding layers
+            updateLayerVisibility('peaks-symbols', peaksVisible, 'peaksVisibilityIcon');
+            updateLayerVisibility('passes-symbols', passesVisible, 'passesVisibilityIcon');
+            
+            // Move layers to top in correct order
             if (map.getLayer('passes-symbols')) {
                 map.moveLayer('passes-symbols');
+            }
+            if (map.getLayer('peaks-symbols')) {
+                map.moveLayer('peaks-symbols');
             }
             if (map.getLayer('location-marker-circle')) {
                 map.moveLayer('location-marker-circle');
@@ -974,6 +1037,9 @@
             }
 
             // Move peaks and location marker to the top after adding or modifying layers
+            if (map.getLayer('passes-symbols')) {
+                map.moveLayer('passes-symbols');
+            }
             if (map.getLayer('peaks-symbols')) {
                 map.moveLayer('peaks-symbols');
             }
