@@ -1663,8 +1663,8 @@
 
         // Update your service worker registration
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/MountainCircles-map-beta/sw.js', {
-                scope: '/MountainCircles-map-beta/'
+            navigator.serviceWorker.register(`${BASE_PATH}/sw.js`, {
+                scope: BASE_PATH
             })
             .then(async registration => {
                 console.log('Service Worker registered with scope:', registration.scope);
@@ -1819,25 +1819,11 @@
             }
         }
 
-        /* Update the button style function to be more explicit */
-        async function updateCacheButtonStyle() {
-            const button = document.getElementById('cacheCurrentConfigBtn');
-            const isCached = await isConfigCached(currentConfig);
-            console.log('Updating button style, cached:', isCached); // Debug log
-            
-            if (isCached) {
-                button.style.border = '2px solid #4CAF50';
-                button.style.boxShadow = '0 0 5px #4CAF50';
-            } else {
-                button.style.border = 'none';
-                button.style.boxShadow = 'none';
-            }
-        }
-
-        // Add this function to update the button styles
+        /* Update the button style function to only target config buttons */
         async function updateConfigButtonStyles() {
             alert('Starting to update button styles');
-            const buttons = document.querySelectorAll('.config-button');
+            // Specifically target buttons within .config-buttons containers
+            const buttons = document.querySelectorAll('.config-buttons .config-button');
             alert(`Found ${buttons.length} config buttons`);
             
             for (const button of buttons) {
@@ -1850,6 +1836,14 @@
                 }
             }
             alert('Finished updating button styles');
+        }
+
+        // Also update the cache button style separately
+        async function updateCacheButtonStyle() {
+            const button = document.getElementById('cacheCurrentConfigBtn');
+            const isCached = await isConfigCached(currentConfig);
+            button.style.border = isCached ? '2px solid #4CAF50' : 'none';
+            button.style.boxShadow = isCached ? '0 0 5px #4CAF50' : 'none';
         }
 
     </script>
