@@ -1131,13 +1131,13 @@
             const peakContext = peakCanvas.getContext('2d');
             const passContext = passCanvas.getContext('2d');
             
-            // Draw brown upward triangle for peaks
+            // Draw orange upward triangle for peaks
             peakContext.beginPath();
             peakContext.moveTo(size/2, 0);
             peakContext.lineTo(size, size);
             peakContext.lineTo(0, size);
             peakContext.closePath();
-            peakContext.fillStyle = '#8B4513';  // Brown color
+            peakContext.fillStyle = '#FF8C00';  // Dark orange color (instead of #8B4513)
             peakContext.fill();
             
             // Draw green inverted triangle for passes
@@ -1193,7 +1193,7 @@
                         ]
                     },
                     paint: {
-                        'text-color': '#654321',  // Dark brown color for peak labels
+                        'text-color': '#FF8C00',  // Dark orange color for peak labels (instead of #654321)
                         'text-halo-color': '#fff',
                         'text-halo-width': 2
                     }
@@ -1212,7 +1212,7 @@
                         'text-field': ['get', 'name'],
                         'text-size': baseTextSize,
                         'text-anchor': 'bottom',  // Text below the triangle
-                        'text-offset': [0, 0.5],
+                        'text-offset': [0, -0.5],
                         'icon-allow-overlap': false,
                         'icon-ignore-placement': false,
                         'icon-optional': true,
