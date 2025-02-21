@@ -1082,7 +1082,20 @@
                         'text-field': ['get', 'namele'],
                         'text-size': baseTextSize,
                         'text-anchor': 'top',
-                        'text-offset': [0, 0.5]
+                        'text-offset': [0, 0.5],
+                        // Only show icons at zoom 10 and above
+                        'icon-allow-overlap': false,
+                        'icon-ignore-placement': false,
+                        'icon-optional': true,
+                        'icon-padding': 2,
+                        'symbol-spacing': 250,
+                        'icon-visibility': ['step', ['zoom'], 'none', 10, 'visible'],
+                        // Only show text at zoom 11 and above
+                        'text-allow-overlap': false,
+                        'text-ignore-placement': false,
+                        'text-optional': true,
+                        'text-padding': 2,
+                        'text-visibility': ['step', ['zoom'], 'none', 11, 'visible']
                     },
                     paint: {
                         'text-color': '#000',
