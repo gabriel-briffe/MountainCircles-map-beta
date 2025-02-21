@@ -907,9 +907,12 @@
         
         // Helper to update the parameters box text based on the config folder.
         function updateParametersBox(cfg) {
+            console.log("updateParametersBox called with:", cfg);  // Debug log
             const parts = cfg.split('-'); // e.g. ["20", "100", "250", "4200"]
+            console.log("parts after split:", parts);  // Debug log
             if (parts.length >= 3) {
                 const labelText = "L/D " + parts[0] + "-ground " + parts[1] + "m-circuit " + parts[2] + "m";
+                console.log("setting label to:", labelText);  // Debug log
                 document.getElementById('parametersBox').textContent = labelText;
             }
         }
