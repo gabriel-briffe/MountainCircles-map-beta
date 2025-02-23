@@ -593,6 +593,9 @@
                     </div>
                 </div>
             </div>
+            <!-- HTML elements for API key input and caching button (place this in your HTML) -->
+            <button id="cacheAirspaceBtn">Cache Airspace Region</button>
+            <input id="apikeyInput" placeholder="Enter your API key" type="text">
 
             <h3>Warning</h3>
             <p>This is a new experimental tool. Problems will arise that have not been encountered before in the gliding community.</p>
@@ -613,6 +616,7 @@
         <button id="installButton" style="background: #4CAF50; border: none; color: white; padding: 8px 16px; border-radius: 4px; margin-right: 10px;">Install</button>
         <button id="cancelInstall" style="background: #666; border: none; color: white; padding: 8px 16px; border-radius: 4px;">Not Now</button>
     </div>
+
 
     <script>
         const BASE_PATH = '/MountainCircles-map-beta';
@@ -1995,6 +1999,67 @@
           });
         }
 
+        // Example: compute tiles for a region at a given zoom level.
+        function computeTileCoordinatesForRegion(bounds, zoom) {
+          // bounds should be in the form [ [minLng, minLat], [maxLng, maxLat] ]
+          // For demonstration, we'll use a simple approach.
+          function lngLatToTile(lng, lat, zoom) {
+            const n = Math.pow(2, zoom);
+            const x = Math.floor((lng + 180) / 360 * n);
+            const latRad = lat * Math.PI / 180;
+            const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+            return { x, y };
+          }
+          
+          const nw = lngLatToTile(bounds[0][0], bounds[1][1], zoom);
+          const se = lngLatToTile(bounds[1][0], bounds[0][1], zoom);
+          
+          const tiles = [];
+          for (let x = nw.x; x <= se.x; x++) {
+            for (let y = nw.y; y <= se.y; y++) {
+              tiles.push({ x, y, z: zoom });
+            }
+          }
+          return tiles;
+        }
+
+        // When the user clicks the "Cache Airspace Region" button
+        document.getElementById('cacheAirspaceBtn').addEventListener('click', () => {
+          const apikey = document.getElementById('apikeyInput').value.trim();
+          if (!apikey) {
+            alert('Please enter your API key before caching.');
+            return;
+          }
+
+          // Define the region bounds and zoom level for caching.
+          // For example, use a selected or predefined region:
+          const regionBounds = [[4.9698169, 43.6088902], [13.696105, 47.5644488]]; // [ [minLng, minLat], [maxLng, maxLat] ]
+          const zoomLevel = 7; // Adjust zoom level as desired
+          const tiles = computeTileCoordinatesForRegion(regionBounds, zoomLevel);
+          
+          // Send a message to the service worker to cache these airspace tiles
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'cacheAirspaceTiles',
+              apikey: apikey,
+              tiles: tiles
+            });
+          } else {
+            alert('Service worker not ready – please try again later.');
+          }
+        });
+
+        // Optionally, listen for messages from the service worker to show progress
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data.type === 'cacheProgress') {
+            console.log(`Cached ${event.data.completed} out of ${event.data.total} tiles; current tile:`, event.data.currentTile);
+          } else if (event.data.type === 'cacheComplete') {
+            console.log(event.data.message);
+            alert(event.data.message);
+          } else if (event.data.type === 'cacheError') {
+            console.error(event.data.message);
+          }
+        });
     </script>
 </body>
 </html>
