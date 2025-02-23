@@ -343,7 +343,7 @@ self.addEventListener('message', async (event) => {
     for (let i = 0; i < tiles.length; i += BATCH_SIZE) {
       const batch = tiles.slice(i, i + BATCH_SIZE);
       await Promise.all(batch.map(async (tile) => {
-        const url = `https://api.tiles.openaip.net/api/data/openaip/${tile.z}/${tile.x}/${tile.y}.png?apikey=${apikey}`;
+        const url = `https://c.api.tiles.openaip.net/api/data/openaip/${tile.z}/${tile.x}/${tile.y}.png?apikey=${apikey}`;
         try {
           const response = await fetch(url);
           if (response.ok) {
