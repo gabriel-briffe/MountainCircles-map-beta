@@ -1393,10 +1393,12 @@
             map.addSource('airspaces', {
                 type: 'raster',
                 tiles: [
-                    'https://c.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apikey=f873030a9e00340ffcf030130f4dc378'
+                    'https://{s}.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apikey=f873030a9e00340ffcf030130f4dc378'
                 ],
                 tileSize: 256,
-                tms: true
+                subdomains: ['a', 'b', 'c'],
+                tms: true,
+                crossOrigin: 'anonymous'
             });
 
             // Add the airspaces raster layer
