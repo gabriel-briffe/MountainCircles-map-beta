@@ -1384,6 +1384,28 @@
                 document.getElementById('zoomInBtn').style.display = 'none';
                 document.getElementById('zoomOutBtn').style.display = 'none';
             } 
+
+            // Add the airspaces raster source using the OpenAIP Tiles API
+            map.addSource('airspaces', {
+                type: 'raster',
+                tiles: [
+                    'https://tiles.openaip.net/airspaces/{z}/{x}/{y}.png?apikey=f873030a9e00340ffcf030130f4dc378'
+                ],
+                tileSize: 256
+            });
+
+            // Add the airspaces raster layer
+            map.addLayer({
+                id: 'airspaces-layer',
+                type: 'raster',
+                source: 'airspaces',
+                layout: {
+                    visibility: 'visible'
+                },
+                paint: {
+                    'raster-opacity': 0.7  // Adjust the opacity as needed
+                }
+            });
         });
         
         // Helper function to check if running in standalone mode
