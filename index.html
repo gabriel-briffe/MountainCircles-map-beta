@@ -1385,11 +1385,11 @@
                 document.getElementById('zoomOutBtn').style.display = 'none';
             } 
 
-            // Add the airspaces raster source using the OpenAIP Tiles API
+            // Add the airspaces raster source using the working OpenAIP Tiles API endpoint
             map.addSource('airspaces', {
                 type: 'raster',
                 tiles: [
-                    'https://tiles.openaip.net/airspaces/{z}/{x}/{y}.png?apikey=f873030a9e00340ffcf030130f4dc378'
+                    'https://api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apikey=f873030a9e00340ffcf030130f4dc378'
                 ],
                 tileSize: 256
             });
@@ -1403,7 +1403,7 @@
                     visibility: 'visible'
                 },
                 paint: {
-                    'raster-opacity': 0.7  // Adjust the opacity as needed
+                    'raster-opacity': 1  // Adjust the opacity as needed
                 }
             });
         });
