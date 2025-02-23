@@ -2018,9 +2018,12 @@
           const se = lngLatToTile(bounds[1][0], bounds[0][1], zoom);
           
           const tiles = [];
+          const subdomains = ['a', 'b', 'c'];
+          
           for (let x = nw.x; x <= se.x; x++) {
             for (let y = nw.y; y <= se.y; y++) {
-              tiles.push({ x, y, z: zoom });
+              const s = subdomains[Math.floor(Math.random() * subdomains.length)];
+              tiles.push({ x, y, z: zoom, s: s });
             }
           }
           return tiles;
