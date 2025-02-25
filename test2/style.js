@@ -158,25 +158,25 @@ const style = {
         "fill-color": [
           "case",
           // prohibited
-          ["all", ["in", ["get", "type"], ["literal", [3]]]], "rgb(255, 0, 0)",
-          // para/voltige purple
-          ["all", ["in", ["get", "type"], ["literal", [28]]]], "rgb(128, 0, 128)",
+          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], "rgb(255, 0, 0)",
+          // Para/voltige purple
+          ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], "rgb(128, 0, 128)",
           // zsm
-          ["all", ["in", ["get", "type"], ["literal", [29]]]], "rgb(255, 165, 0)",
+          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], "rgb(255, 165, 0)",
           // rmz
-          ["all", ["in", ["get", "type"], ["literal", [6]]]], "rgb(255, 165, 0)",
+          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], "rgb(255, 165, 0)",
           "rgb(0, 0, 0, 0)"
         ],
         "fill-opacity": [
           "case",
           // prohibited
-          ["all", ["in", ["get", "type"], ["literal", [3]]]], 0.2,
-          // para/voltige
-          ["all", ["in", ["get", "type"], ["literal", [28]]]], 0.2,
+          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], 0.2,
+          // Para/voltige
+          ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], 0.2,
           // zsm
-          ["all", ["in", ["get", "type"], ["literal", [29]]]], 0.5,
+          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], 0.5,
           // rmz
-          ["all", ["in", ["get", "type"], ["literal", [6]]]], 0.2,
+          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], 0.2,
           0
         ]
       }
@@ -186,38 +186,37 @@ const style = {
       type: "line",
       source: "other",
       layout: {
+        // "line-sort-key": ["get", "icaoClass"]
         "line-sort-key": [
           "case",
-          // If the unit is FL, multiply the value by 100.
-          ["==", ["get", "upperLimit.unit"], "FL"],
-             ["*", ["get", "upperLimit.value"], 100],
-             // otherwise, use the value as-is.
-             ["get", "upperLimit.value"]
+          ["==", ["get", "upperLimitUnit"], "FL"],
+          ["*", ["to-number", ["get", "upperLimitValue"]], 100],
+          ["to-number", ["get", "upperLimitValue"]]
         ]
       },
       paint: {
         "line-color": [
           "case",
           // if ICAO class is A or B 
-          ["all", ["in", ["get", "icaoClass"], ["literal", [0, 1]]]], "rgb(255, 0, 0)",
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["A", "B"]]]], "rgb(255, 0, 0)",
           // if ICAO class is C or D 
-          ["all", ["in", ["get", "icaoClass"], ["literal", [2, 3]]]], "rgb(0, 0, 255)",
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["C", "D"]]]], "rgb(0, 0, 255)",
           // if ICAO class is E, F, or G 
-          ["all", ["in", ["get", "icaoClass"], ["literal", [4, 5, 6]]]], "rgb(0, 83, 0)",
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["E", "F", "G"]]]], "rgb(0, 83, 0)",
           // If the TYPE is Prohibited, Restricted, or Dangerous
-          ["all", ["in", ["get", "type"], ["literal", [3, 1, 2]]]], "rgb(255, 0, 0)",
+          ["all", ["in", ["get", "type"], ["literal", ["Prohibited", "Restricted", "Dangerous"]]]], "rgb(255, 0, 0)",
           // if type is ZSM or RMZ, color is orange
-          ["all", ["in", ["get", "type"], ["literal", [6, 29]]]], "rgb(255, 165, 0)",
+          ["all", ["in", ["get", "type"], ["literal", ["ZSM", "RMZ"]]]], "rgb(255, 165, 0)",
           // if type is TMZ or Para/voltige, color is purple
-          ["all", ["in", ["get", "type"], ["literal", [5, 28]]]], "rgb(128, 0, 128)",
+          ["all", ["in", ["get", "type"], ["literal", ["TMZ", "Para/voltige"]]]], "rgb(128, 0, 128)",
           // Default color if no condition matches
           "rgb(0, 0, 0)"
         ],
         "line-width": [
           "case",
-          ["all", ["in", ["get", "icaoClass"], ["literal", [0, 1]]]], 4,
-          ["all", ["in", ["get", "icaoClass"], ["literal", [2, 3]]]], 2,
-          ["all", ["in", ["get", "icaoClass"], ["literal", [4, 5, 6]]]], 1,
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["A", "B"]]]], 4,
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["C", "D"]]]], 2,
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["E", "F", "G"]]]], 1,
           // if type is Prohibited, Restricted, or Dangerous, use line width 2
           ["all", ["in", ["get", "type"], ["literal", [3, 1, 2]]]], 2,
           1

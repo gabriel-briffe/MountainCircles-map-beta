@@ -38,7 +38,7 @@
         <label><input type="checkbox" id="toggleZSM" checked> ZSM</label><br>
         <label><input type="checkbox" id="toggleRMZ" checked> RMZ</label><br>
         <label><input type="checkbox" id="toggleTMZ" checked> TMZ</label><br>
-        <label><input type="checkbox" id="toggleParaVoltige" checked> Para/Voltige</label><br>
+        <label><input type="checkbox" id="toggleParaVoltige" checked> Para/voltige</label><br>
         <label><input type="checkbox" id="toggleByNotam" checked> byNotam</label><br>
     </div>
 
@@ -51,45 +51,45 @@
 
         console.log("Script started, ICAO Mapping:", ICAO_CLASS_MAPPING);
 
-        function translateAirspaceProperties(props) {
-            const translated = Object.assign({}, props);
+        // function translateAirspaceProperties(props) {
+        //     const translated = Object.assign({}, props);
 
-            if (translated.hasOwnProperty("icaoClass")) {
-                const val = Number(translated["icaoClass"]);
-                translated["icaoClassTranslated"] = ICAO_CLASS_MAPPING[val] || val;
-            }
-            if (translated.hasOwnProperty("type")) {
-                const val = Number(translated["type"]);
-                translated["typeTranslated"] = TYPE_MAPPING[val] || val;
-            }
-            if (translated.hasOwnProperty("lowerLimit")) {
-                try {
-                    const lower = JSON.parse(translated["lowerLimit"]);
-                    lower.unitTranslated = UNIT_MAPPING[lower.unit] || lower.unit;
-                    lower.referenceDatumTranslated = REFERENCE_DATUM_MAPPING[lower.referenceDatum] || lower.referenceDatum;
-                    translated["lowerLimit"] = lower;
-                } catch (e) {}
-            }
-            if (translated.hasOwnProperty("upperLimit")) {
-                try {
-                    const upper = JSON.parse(translated["upperLimit"]);
-                    upper.unitTranslated = UNIT_MAPPING[upper.unit] || upper.unit;
-                    upper.referenceDatumTranslated = REFERENCE_DATUM_MAPPING[upper.referenceDatum] || upper.referenceDatum;
-                    translated["upperLimit"] = upper;
-                } catch (e) {}
-            }
-            if (translated.hasOwnProperty("frequencies")) {
-                try {
-                    translated["frequencies"] = JSON.parse(translated["frequencies"]);
-                } catch (e) {}
-            }
-            if (translated.hasOwnProperty("hoursOfOperation")) {
-                try {
-                    translated["hoursOfOperation"] = JSON.parse(translated["hoursOfOperation"]);
-                } catch (e) {}
-            }
-            return translated;
-        }
+        //     if (translated.hasOwnProperty("icaoClass")) {
+        //         const val = Number(translated["icaoClass"]);
+        //         translated["icaoClassTranslated"] = ICAO_CLASS_MAPPING[val] || val;
+        //     }
+        //     if (translated.hasOwnProperty("type")) {
+        //         const val = Number(translated["type"]);
+        //         translated["typeTranslated"] = TYPE_MAPPING[val] || val;
+        //     }
+        //     if (translated.hasOwnProperty("lowerLimit")) {
+        //         try {
+        //             const lower = JSON.parse(translated["lowerLimit"]);
+        //             lower.unitTranslated = UNIT_MAPPING[lower.unit] || lower.unit;
+        //             lower.referenceDatumTranslated = REFERENCE_DATUM_MAPPING[lower.referenceDatum] || lower.referenceDatum;
+        //             translated["lowerLimit"] = lower;
+        //         } catch (e) {}
+        //     }
+        //     if (translated.hasOwnProperty("upperLimit")) {
+        //         try {
+        //             const upper = JSON.parse(translated["upperLimit"]);
+        //             upper.unitTranslated = UNIT_MAPPING[upper.unit] || upper.unit;
+        //             upper.referenceDatumTranslated = REFERENCE_DATUM_MAPPING[upper.referenceDatum] || upper.referenceDatum;
+        //             translated["upperLimit"] = upper;
+        //         } catch (e) {}
+        //     }
+        //     if (translated.hasOwnProperty("frequencies")) {
+        //         try {
+        //             translated["frequencies"] = JSON.parse(translated["frequencies"]);
+        //         } catch (e) {}
+        //     }
+        //     if (translated.hasOwnProperty("hoursOfOperation")) {
+        //         try {
+        //             translated["hoursOfOperation"] = JSON.parse(translated["hoursOfOperation"]);
+        //         } catch (e) {}
+        //     }
+        //     return translated;
+        // }
 
         const displayFields = ["name", "icaoClassTranslated", "typeTranslated", "lowerLimit", "upperLimit"];
 
@@ -224,36 +224,36 @@
                 function updateOtherLayerFilter() {
                     let filter = ["all"];
                     if (!document.getElementById("toggleProhibited").checked) {
-                        filter.push(["!=", ["get", "type"], 3]);
+                        filter.push(["!=", ["get", "type"], "Prohibited"]);
                     }
                     if (!document.getElementById("toggleRestricted").checked) {
-                        filter.push(["!=", ["get", "type"], 1]);
+                        filter.push(["!=", ["get", "type"], "Restricted"]);
                     }
                     if (!document.getElementById("toggleDangerous").checked) {
-                        filter.push(["!=", ["get", "type"], 2]);
+                        filter.push(["!=", ["get", "type"], "Dangerous"]);
                     }
                     if (!document.getElementById("toggleABCD").checked) {
-                        filter.push(["!=", ["get", "icaoClass"], 0]);
-                        filter.push(["!=", ["get", "icaoClass"], 1]);
-                        filter.push(["!=", ["get", "icaoClass"], 2]);
-                        filter.push(["!=", ["get", "icaoClass"], 3]);
+                        filter.push(["!=", ["get", "icaoClass"], "A"]);
+                        filter.push(["!=", ["get", "icaoClass"], "B"]);
+                        filter.push(["!=", ["get", "icaoClass"], "C"]);
+                        filter.push(["!=", ["get", "icaoClass"], "D"]);
                     }
                     if (!document.getElementById("toggleEFG").checked) {
-                        filter.push(["!=", ["get", "icaoClass"], 4]);
-                        filter.push(["!=", ["get", "icaoClass"], 5]);
-                        filter.push(["!=", ["get", "icaoClass"], 6]);
+                        filter.push(["!=", ["get", "icaoClass"], "E"]);
+                        filter.push(["!=", ["get", "icaoClass"], "F"]);
+                        filter.push(["!=", ["get", "icaoClass"], "G"]);
                     }
                     if (!document.getElementById("toggleZSM").checked) {
-                        filter.push(["!=", ["get", "type"], 29]);
+                        filter.push(["!=", ["get", "type"], "ZSM"]);
                     }
                     if (!document.getElementById("toggleRMZ").checked) {
-                        filter.push(["!=", ["get", "type"], 6]);
+                        filter.push(["!=", ["get", "type"], "RMZ"]);
                     }
                     if (!document.getElementById("toggleTMZ").checked) {
-                        filter.push(["!=", ["get", "type"], 5]);
+                        filter.push(["!=", ["get", "type"], "TMZ"]);
                     }
                     if (!document.getElementById("toggleParaVoltige").checked) {
-                        filter.push(["!=", ["get", "type"], 28]);
+                        filter.push(["!=", ["get", "type"], "Para/voltige"]);
                     }
                     if (!document.getElementById("toggleByNotam").checked) {
                         filter.push(["!=", ["get", "byNotam"], true]);
@@ -297,6 +297,12 @@
                             popupContent += "<hr><pre>" + JSON.stringify(feature.properties, null, 2) + "</pre>";
                         });
                         popupContent += "</div>";
+                        console.log("Translated and filtered airspace properties at click:");
+                        features.forEach(function (feature) {
+                            // const translatedProps = translateAirspaceProperties(feature.properties);
+                            // const filteredProps = filterProperties(feature.properties, displayFields);
+                            console.log(feature.properties);
+                        });
                     } else {
                         popupContent = "<p>No features found at this location.</p>";
                     }
