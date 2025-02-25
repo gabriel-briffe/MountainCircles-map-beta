@@ -1,35 +1,4 @@
-import { ICAO_CLASS_MAPPING, TYPE_MAPPING } from './mappings.js';
 
-// export const ICAO_CLASS_MAPPING = {
-//   0: "A",
-//   1: "B",
-//   2: "C",
-//   3: "D",
-//   4: "E",
-//   5: "F",
-//   6: "G",
-//   7: "",
-//   8: "Other"
-// }; 
-
-// export const TYPE_MAPPING = {
-//   0: "AWY",
-//   1: "Restricted",
-//   2: "Dangerous",
-//   3: "Prohibited",
-//   4: "CTR",
-//   5: "TMZ",
-//   6: "RMZ",
-//   7: "TMA",
-//   10: "FIR",
-//   21: "gliding",
-//   26: "CTA",
-//   28: "Para/voltige",
-//   29: "ZSM",
-//   33: "SIV"
-// };
-// ----------created by me, properties.custom----------
-//   LTA
 
 const style = {
   version: 8,
@@ -57,10 +26,6 @@ const style = {
       type: "geojson",
       data: "/data/gliding.geojson"
     },
-    // "ground": {
-    //   type: "geojson",
-    //   data: "/data/ground.geojson"
-    // },
     "other": {
       type: "geojson",
       data: "/data/other.geojson"
@@ -101,8 +66,9 @@ const style = {
         "visibility": "none"
       },
       paint: {
-        "line-color": "rgb(0, 255, 0)",
-        "line-width": 1
+        "line-color": "rgb(0, 160, 0)",
+        "line-width": 2,
+        "line-dasharray": [2,5]
       }
     },
     {
@@ -151,37 +117,6 @@ const style = {
       }
     },
     {
-      id: "other-fill",
-      type: "fill",
-      source: "other",
-      paint: {
-        "fill-color": [
-          "case",
-          // prohibited
-          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], "rgb(255, 0, 0)",
-          // Para/voltige purple
-          ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], "rgb(128, 0, 128)",
-          // zsm
-          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], "rgb(255, 165, 0)",
-          // rmz
-          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], "rgb(255, 165, 0)",
-          "rgb(0, 0, 0, 0)"
-        ],
-        "fill-opacity": [
-          "case",
-          // prohibited
-          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], 0.2,
-          // Para/voltige
-          ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], 0.2,
-          // zsm
-          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], 0.5,
-          // rmz
-          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], 0.2,
-          0
-        ]
-      }
-    },
-    {
       id: "other-outline",
       type: "line",
       source: "other",
@@ -223,6 +158,37 @@ const style = {
         ]
       }
     },
+    {
+      id: "other-fill",
+      type: "fill",
+      source: "other",
+      paint: {
+        "fill-color": [
+          "case",
+          // prohibited
+          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], "rgb(255, 0, 0)",
+          // Para/voltige purple
+          ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], "rgb(128, 0, 128)",
+          // zsm
+          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], "rgb(255, 165, 0)",
+          // rmz
+          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], "rgb(255, 165, 0)",
+          "rgb(0, 0, 0, 0)"
+        ],
+        "fill-opacity": [
+          "case",
+          // prohibited
+          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], 0.2,
+          // Para/voltige
+          ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], 0.2,
+          // zsm
+          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], 0.5,
+          // rmz
+          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], 0.2,
+          0
+        ]
+      }
+    },
     
 
   ]
@@ -230,45 +196,3 @@ const style = {
 
 export default style;
 
-// properties for text suggestions
-// {
-//   "_id": "str",
-//   "createdBy": "str",
-//   "createdAt": "str",
-//   "updatedBy": "str",
-//   "updatedAt": "str",
-//   "name": "str",
-//   "dataIngestion": "bool",
-//   "type": "int",
-//   "icaoClass": "int",
-//   "activity": "int",
-//   "onDemand": "bool",
-//   "onRequest": "bool",
-//   "byNotam": "bool",
-//   "specialAgreement": "bool",
-//   "requestCompliance": "bool",
-//   "country": "str",
-//   "upperLimit": {
-//     "value": "int",
-//     "unit": "int",
-//     "referenceDatum": "int"
-//   },
-//   "lowerLimit": {
-//     "value": "int",
-//     "unit": "int",
-//     "referenceDatum": "int"
-//   },
-//   "hoursOfOperation": {
-//     "operatingHours": [
-//       {
-//         "dayOfWeek": "int",
-//         "startTime": "str",
-//         "endTime": "str",
-//         "byNotam": "bool",
-//         "sunrise": "bool",
-//         "sunset": "bool",
-//         "publicHolidaysExcluded": "bool"
-//       }
-//     ]
-//   }
-// }

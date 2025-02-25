@@ -1,4 +1,4 @@
-import { ICAO_CLASS_MAPPING, TYPE_MAPPING, UNIT_MAPPING, REFERENCE_DATUM_MAPPING } from './mappings.js';
+import { ICAO_CLASS_MAPPING, TYPE_MAPPING, UNIT_MAPPING, REFERENCE_DATUM_MAPPING, FT_TO_M } from './mappings.js';
 
 /**
  * Translates airspace properties into richer, human‐readable form.
@@ -62,6 +62,13 @@ export function translateData(props) {
             translated["lowerLimitValue"] = translated["lowerLimitValue"];
             translated["lowerLimitUnit"] = UNIT_MAPPING[translated["lowerLimitUnit"]] || translated["lowerLimitUnit"];
             translated["lowerLimitReferenceDatum"] = REFERENCE_DATUM_MAPPING[translated["lowerLimitReferenceDatum"]] || translated["lowerLimitReferenceDatum"];
+            if (translated["lowerLimitUnit"] === "FL") {
+                translated["parsedLowerLimit"] = `${translated["lowerLimitUnit"]}${translated["lowerLimitValue"]}`;
+                translated["lowerLimitMeters"] = Math.round(translated["lowerLimitValue"] * 100 * FT_TO_M);
+            } else {
+                translated["parsedLowerLimit"] = `${translated["lowerLimitValue"]}${translated["lowerLimitUnit"]} ${translated["lowerLimitReferenceDatum"]}`;
+                translated["lowerLimitMeters"] = Math.round(translated["lowerLimitValue"] * FT_TO_M);
+            }
         } catch (e) {
             // If parsing fails, keep the original value.
             console.log("Error parsing lowerLimit:", e);
@@ -73,6 +80,13 @@ export function translateData(props) {
             translated["upperLimitValue"] = translated["upperLimitValue"];
             translated["upperLimitUnit"] = UNIT_MAPPING[translated["upperLimitUnit"]] || translated["upperLimitUnit"];
             translated["upperLimitReferenceDatum"] = REFERENCE_DATUM_MAPPING[translated["upperLimitReferenceDatum"]] || translated["upperLimitReferenceDatum"];
+            if (translated["upperLimitUnit"] === "FL") {
+                translated["parsedUpperLimit"] = `${translated["upperLimitUnit"]}${translated["upperLimitValue"]}`;
+                translated["upperLimitMeters"] = Math.round(translated["upperLimitValue"] * 100 * FT_TO_M);
+            } else {
+                translated["parsedUpperLimit"] = `${translated["upperLimitValue"]}${translated["upperLimitUnit"]} ${translated["upperLimitReferenceDatum"]}`;
+                translated["upperLimitMeters"] = Math.round(translated["upperLimitValue"] * FT_TO_M);
+            }
         } catch (e) {
             // If parsing fails, keep the original value.
             console.log("Error parsing upperLimit:", e);
@@ -96,7 +110,7 @@ export function processGeoJSON(data) {
     // Translate every feature's properties (flattening only)
     const processedFeatures = data.features.map(feature => {
         const newProperties = translateData(feature.properties);
-        console.log("Processed feature properties:", newProperties); // Debug log
+        // console.log("Processed feature properties:", newProperties); // Debug log
         return { ...feature, properties: newProperties };
     });
 

@@ -36,3 +36,5 @@ export const REFERENCE_DATUM_MAPPING = {
     1: "MSL", 
     2: "1013" 
 };
+
+export const FT_TO_M = 0.3048;
