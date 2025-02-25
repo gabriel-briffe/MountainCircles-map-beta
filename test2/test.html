@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Airspace</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        #sidebar { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            background: rgba(255, 255, 255, 0.9); 
+            padding: 10px; 
+            border-radius: 4px; 
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); 
+            z-index: 2; 
+            font-family: sans-serif; 
+            font-size: 14px; 
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <label><input type="checkbox" id="toggleSIV" unchecked> SIV</label><br>
+        <label><input type="checkbox" id="toggleFIR" unchecked> FIR</label><br>
+        <label><input type="checkbox" id="toggleParks" checked> Parks</label><br>
+        <label><input type="checkbox" id="toggleGliding" checked> Gliding</label><br>
+        <label><input type="checkbox" id="toggleLTA" checked> LTA</label>
+        <hr>
+        <label><input type="checkbox" id="toggleProhibited" checked> Prohibited</label><br>
+        <label><input type="checkbox" id="toggleRestricted" checked> Restricted</label><br>
+        <label><input type="checkbox" id="toggleDangerous" checked> Dangerous</label><br>
+        <label><input type="checkbox" id="toggleABCD" checked> A, B, C, D</label><br>
+        <label><input type="checkbox" id="toggleEFG" checked> E, F, G</label><br>
+        <label><input type="checkbox" id="toggleZSM" checked> ZSM</label><br>
+        <label><input type="checkbox" id="toggleRMZ" checked> RMZ</label><br>
+        <label><input type="checkbox" id="toggleTMZ" checked> TMZ</label><br>
+        <label><input type="checkbox" id="toggleParaVoltige" checked> Para/Voltige</label><br>
+        <label><input type="checkbox" id="toggleByNotam" checked> byNotam</label><br>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
+    <script type="module">
+        import style from "./style.js";
+        import { ICAO_CLASS_MAPPING, TYPE_MAPPING, UNIT_MAPPING, REFERENCE_DATUM_MAPPING } from "./mappings.js";
+
+        console.log("Script started, ICAO Mapping:", ICAO_CLASS_MAPPING);
+
+        function translateAirspaceProperties(props) {
+            const translated = Object.assign({}, props);
+
+            if (translated.hasOwnProperty("icaoClass")) {
+                const val = Number(translated["icaoClass"]);
+                translated["icaoClassTranslated"] = ICAO_CLASS_MAPPING[val] || val;
+            }
+            if (translated.hasOwnProperty("type")) {
+                const val = Number(translated["type"]);
+                translated["typeTranslated"] = TYPE_MAPPING[val] || val;
+            }
+            if (translated.hasOwnProperty("lowerLimit")) {
+                try {
+                    const lower = JSON.parse(translated["lowerLimit"]);
+                    lower.unitTranslated = UNIT_MAPPING[lower.unit] || lower.unit;
+                    lower.referenceDatumTranslated = REFERENCE_DATUM_MAPPING[lower.referenceDatum] || lower.referenceDatum;
+                    translated["lowerLimit"] = lower;
+                } catch (e) {}
+            }
+            if (translated.hasOwnProperty("upperLimit")) {
+                try {
+                    const upper = JSON.parse(translated["upperLimit"]);
+                    upper.unitTranslated = UNIT_MAPPING[upper.unit] || upper.unit;
+                    upper.referenceDatumTranslated = REFERENCE_DATUM_MAPPING[upper.referenceDatum] || upper.referenceDatum;
+                    translated["upperLimit"] = upper;
+                } catch (e) {}
+            }
+            if (translated.hasOwnProperty("frequencies")) {
+                try {
+                    translated["frequencies"] = JSON.parse(translated["frequencies"]);
+                } catch (e) {}
+            }
+            if (translated.hasOwnProperty("hoursOfOperation")) {
+                try {
+                    translated["hoursOfOperation"] = JSON.parse(translated["hoursOfOperation"]);
+                } catch (e) {}
+            }
+            return translated;
+        }
+
+        const displayFields = ["name", "icaoClassTranslated", "typeTranslated", "lowerLimit", "upperLimit"];
+
+        function filterProperties(props, fields) {
+            const filtered = {};
+            fields.forEach(function (field) {
+                if (props.hasOwnProperty(field)) {
+                    filtered[field] = props[field];
+                }
+            });
+            return filtered;
+        }
+
+        async function initializeApp() {
+            console.log("initializeApp started");
+
+            if ('serviceWorker' in navigator) {
+                if (navigator.serviceWorker.controller) {
+                    console.log("Page already controlled by service worker:", navigator.serviceWorker.controller.scriptURL);
+                } else {
+                    console.log("No controller, registering service worker");
+                    try {
+                        const registration = await navigator.serviceWorker.register('/sw2.js', { scope: '/', type: 'module' });
+                        console.log("Forcing service worker update");
+                        await registration.update();
+
+                        if (registration.waiting) {
+                            console.log("Skipping waiting phase");
+                            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                        if (registration.installing) {
+                            console.log("Waiting for installing worker to activate");
+                            await new Promise(resolve => {
+                                registration.installing.addEventListener('statechange', () => {
+                                    if (registration.installing.state === 'activated') resolve();
+                                });
+                            });
+                        }
+
+                        console.log("Waiting for service worker to be ready");
+                        await navigator.serviceWorker.ready;
+                        console.log('Service Worker active:', registration.scope);
+
+                        if (!navigator.serviceWorker.controller) {
+                            console.log("No controller after registration, forcing reload");
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Service Worker registration failed:', error);
+                    }
+                }
+            } else {
+                console.log("Service workers not supported");
+            }
+
+            console.log("Initializing map");
+            const map = new maplibregl.Map({
+                container: 'map',
+                style: style,
+                center: [2.2137, 46.2276],
+                zoom: 5
+            });
+
+            map.on('load', function () {
+                console.log("Map loaded");
+
+                // SIV layer toggle
+                const sivCheckbox = document.getElementById("toggleSIV");
+                sivCheckbox.addEventListener("change", function() {
+                    if (map.getLayer("SIV-outline")) {
+                        const visibility = sivCheckbox.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("SIV-outline", "visibility", visibility);
+                        console.log("SIV layer visibility set to", visibility);
+                    } else {
+                        console.log("Layer SIV not found");
+                    }
+                });
+
+                // FIR layer toggle
+                const firCheckbox = document.getElementById("toggleFIR");
+                firCheckbox.addEventListener("change", function() {
+                    if (map.getLayer("FIR-outline")) {
+                        const visibility = firCheckbox.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("FIR-outline", "visibility", visibility);
+                        console.log("FIR layer visibility set to", visibility);
+                    } else {
+                        console.log("Layer FIR not found");
+                    }
+                }); 
+
+                // Parks layer toggle
+                const parksCheckbox = document.getElementById("toggleParks");
+                parksCheckbox.addEventListener("change", function() {
+                    if (map.getLayer("parks-outline")) {
+                        const visibility = parksCheckbox.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("parks-outline", "visibility", visibility);
+                        console.log("Parks layer visibility set to", visibility);
+                    } else {
+                        console.log("Layer parks not found");
+                    }
+                });
+
+                // Gliding layer toggle
+                const glidingCheckbox = document.getElementById("toggleGliding");
+                glidingCheckbox.addEventListener("change", function() {
+                    if (map.getLayer("gliding-outline")) {
+                        const visibility = glidingCheckbox.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("gliding-outline", "visibility", visibility);
+                        console.log("Gliding layer visibility set to", visibility);
+                    } else {
+                        console.log("Layer gliding not found");
+                    }
+                });
+
+                // LTA features toggle (filter on gliding layer)
+                const ltaCheckbox = document.getElementById("toggleLTA");
+                ltaCheckbox.addEventListener("change", function() {
+                    if (map.getLayer("gliding-outline")) {
+                        // if lta unchecked, remove features with customProperty === "LTA"
+                        if (!ltaCheckbox.checked) {
+                            map.setFilter("gliding-outline", ["!=", ["get", "customProperty"], "LTA"]);
+                        } else {
+                            map.setFilter("gliding-outline", null);
+                        }
+                    } else {
+                        console.log("Layer gliding not found for filtering LTA features");
+                    }
+                });
+
+                // Handler for filtering the other-fill and other-outline layers
+                function updateOtherLayerFilter() {
+                    let filter = ["all"];
+                    if (!document.getElementById("toggleProhibited").checked) {
+                        filter.push(["!=", ["get", "type"], 3]);
+                    }
+                    if (!document.getElementById("toggleRestricted").checked) {
+                        filter.push(["!=", ["get", "type"], 1]);
+                    }
+                    if (!document.getElementById("toggleDangerous").checked) {
+                        filter.push(["!=", ["get", "type"], 2]);
+                    }
+                    if (!document.getElementById("toggleABCD").checked) {
+                        filter.push(["!=", ["get", "icaoClass"], 0]);
+                        filter.push(["!=", ["get", "icaoClass"], 1]);
+                        filter.push(["!=", ["get", "icaoClass"], 2]);
+                        filter.push(["!=", ["get", "icaoClass"], 3]);
+                    }
+                    if (!document.getElementById("toggleEFG").checked) {
+                        filter.push(["!=", ["get", "icaoClass"], 4]);
+                        filter.push(["!=", ["get", "icaoClass"], 5]);
+                        filter.push(["!=", ["get", "icaoClass"], 6]);
+                    }
+                    if (!document.getElementById("toggleZSM").checked) {
+                        filter.push(["!=", ["get", "type"], 29]);
+                    }
+                    if (!document.getElementById("toggleRMZ").checked) {
+                        filter.push(["!=", ["get", "type"], 6]);
+                    }
+                    if (!document.getElementById("toggleTMZ").checked) {
+                        filter.push(["!=", ["get", "type"], 5]);
+                    }
+                    if (!document.getElementById("toggleParaVoltige").checked) {
+                        filter.push(["!=", ["get", "type"], 28]);
+                    }
+                    if (!document.getElementById("toggleByNotam").checked) {
+                        filter.push(["!=", ["get", "byNotam"], true]);
+                    }
+                    const finalFilter = filter.length > 1 ? filter : null;
+                    if (map.getLayer("other-fill")) {
+                        map.setFilter("other-fill", finalFilter);
+                    }
+                    if (map.getLayer("other-outline")) {
+                        map.setFilter("other-outline", finalFilter);
+                    }
+                    console.log("Other layer filter updated:", finalFilter);
+                }
+
+                // Attach change event listeners to the other layer filter checkboxes
+                const prohibitedCheckbox = document.getElementById("toggleProhibited");
+                const restrictedCheckbox = document.getElementById("toggleRestricted");
+                const dangerousCheckbox = document.getElementById("toggleDangerous");
+                const abcdCheckbox = document.getElementById("toggleABCD");
+                const efgCheckbox = document.getElementById("toggleEFG");
+                const zsmCheckbox = document.getElementById("toggleZSM");
+                const rmzCheckbox = document.getElementById("toggleRMZ");
+                const tmzCheckbox = document.getElementById("toggleTMZ");
+                const paraVoltigeCheckbox = document.getElementById("toggleParaVoltige");
+                const byNotamCheckbox = document.getElementById("toggleByNotam");
+                [prohibitedCheckbox, restrictedCheckbox, dangerousCheckbox, abcdCheckbox, efgCheckbox, zsmCheckbox, rmzCheckbox, tmzCheckbox, paraVoltigeCheckbox, byNotamCheckbox].forEach(checkbox => {
+                    checkbox.addEventListener("change", updateOtherLayerFilter);
+                });
+
+                // Popup on map click: display a scrollable popup with feature info
+                map.on('click', function(e) {
+                    // Adjust the layer list as needed to include all airspace layers of interest
+                    const features = map.queryRenderedFeatures(e.point, {
+                        layers: ["SIV-fill", "gliding-fill", "parks-fill", "FIR-fill", "other-fill"]
+                    });
+
+                    let popupContent = "";
+                    if (features.length) {
+                        popupContent = "<div style='max-height:300px; overflow-y:auto;'>";
+                        features.forEach(function(feature) {
+                            popupContent += "<hr><pre>" + JSON.stringify(feature.properties, null, 2) + "</pre>";
+                        });
+                        popupContent += "</div>";
+                    } else {
+                        popupContent = "<p>No features found at this location.</p>";
+                    }
+                    new maplibregl.Popup({ maxWidth: "400px" })
+                        .setLngLat(e.lngLat)
+                        .setHTML(popupContent)
+                        .addTo(map);
+                });
+            });
+
+            map.on('error', function (e) {
+                console.error("Map error:", e);
+            });
+        }
+
+        console.log("Calling initializeApp");
+        initializeApp();
+    </script>
+</body>
+</html>
