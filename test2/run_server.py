@@ -5,38 +5,41 @@ PORT = 8000
 
 class CustomHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
-        # Log the request
-        print(f"Request: {self.path}")
-        
-        # Redirect root to /test.html
+        print(f"Request received: {self.path}")
         if self.path == '/':
-            self.path = '/test.html'
-
-        # Set explicit MIME types for key files
-        if self.path.endswith('.js'):
-            self.send_header('Content-Type', 'application/javascript')
-        elif self.path.endswith('.html'):
-            self.send_header('Content-Type', 'text/html')
-        elif self.path.endswith('.geojson'):
-            self.send_header('Content-Type', 'application/geo+json')
+            self.path = '/index.html'
 
         try:
-            return super().do_GET()
-        except FileNotFoundError:
-            self.send_error(404, f"File not found: {self.path}")
+            # Get file path and check existence
+            file_path = self.translate_path(self.path)
+            if not os.path.isfile(file_path):
+                print(f"File not found: {file_path}")
+                self.send_error(404, f"File not found: {self.path}")
+                return
 
-    def end_headers(self):
-        # Add basic CORS headers for service worker compatibility
-        self.send_header('Access-Control-Allow-Origin', '*')
-        super().end_headers()
+            # Read file content
+            with open(file_path, 'rb') as f:
+                content = f.read()
+                content_length = len(content)
+
+            # Send response
+            self.send_response(200)
+            self.send_header('Content-Type', self.guess_type(file_path))
+            self.send_header('Content-Length', str(content_length))
+            self.send_header('Connection', 'close')  # Ensure connection closes cleanly
+            self.end_headers()
+            self.wfile.write(content)
+            self.wfile.flush()  # Force send
+            print(f"Served: {self.path} - {content_length} bytes")
+
+        except Exception as e:
+            print(f"Error serving {self.path}: {e}")
+            self.send_error(500, f"Internal server error: {str(e)}")
 
 if __name__ == '__main__':
-    # Ensure we're in the right directory (e.g., where test.html, sw2.js, etc., live)
     script_dir = os.path.dirname(__file__)
     os.chdir(script_dir)
     print(f"Working directory set to: {os.getcwd()}")
-
-    # List files to confirm they're accessible
     print("Available files:", os.listdir(script_dir))
 
     server_address = ('', PORT)

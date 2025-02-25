@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Airspace</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        #sidebar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+            font-family: sans-serif;
+            font-size: 14px;
+        }
+
+        /* Popup styling */
+        .popup-menu {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            padding: 0px;
+            z-index: 1000;
+            max-width: 400px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .popup-section {
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+            /* Make sections look clickable */
+            cursor: pointer;
+            /* Make text unselectable */
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        .popup-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        /* Highlighted popup section */
+        .popup-section.highlighted {
+            background-color: rgba(64, 224, 208, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="sidebar">
+        <label><input type="checkbox" id="toggleSIV" unchecked> SIV</label><br>
+        <label><input type="checkbox" id="toggleFIR" unchecked> FIR</label><br>
+        <label><input type="checkbox" id="toggleParks" checked> Parks</label><br>
+        <label><input type="checkbox" id="toggleGliding" checked> Gliding</label><br>
+        <label><input type="checkbox" id="toggleLTA" checked> LTA</label>
+        <hr>
+        <label><input type="checkbox" id="toggleProhibited" checked> Prohibited</label><br>
+        <label><input type="checkbox" id="toggleRestricted" checked> Restricted</label><br>
+        <label><input type="checkbox" id="toggleDangerous" checked> Dangerous</label><br>
+        <label><input type="checkbox" id="toggleABCD" checked> A, B, C, D</label><br>
+        <label><input type="checkbox" id="toggleEFG" checked> E, F, G</label><br>
+        <label><input type="checkbox" id="toggleZSM" checked> ZSM</label><br>
+        <label><input type="checkbox" id="toggleRMZ" checked> RMZ</label><br>
+        <label><input type="checkbox" id="toggleTMZ" checked> TMZ</label><br>
+        <label><input type="checkbox" id="toggleParaVoltige" checked> Para/voltige</label><br>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
+    <script type="module">
+        import style from "./style.js";
+        import { ICAO_CLASS_MAPPING, TYPE_MAPPING, UNIT_MAPPING, REFERENCE_DATUM_MAPPING } from "./mappings.js";
+
+        console.log("Script started, ICAO Mapping:", ICAO_CLASS_MAPPING);
+
+        const displayFields = ["name", "icaoClassTranslated", "typeTranslated", "lowerLimit", "upperLimit"];
+
+        function filterProperties(props, fields) {
+            const filtered = {};
+            fields.forEach(function (field) {
+                if (props.hasOwnProperty(field)) {
+                    filtered[field] = props[field];
+                }
+            });
+            return filtered;
+        }
+
+        // Global variables to remember the last popup location, highlighted feature key, and popup marker.
+        let lastPopupLngLat = null;
+        let highlightedFeatureKey = null;
+        let popupMarker = null;
+
+        // Utility function to generate a unique key for a feature.
+        function getFeatureKey(props) {
+            return props._id;
+        }
+
+        // Helper function which creates a popup section for a feature.
+        function buildPopupSection(feature, map, popup) {
+            const props = feature.properties;
+            const featureKey = getFeatureKey(props);
+
+            // Format header and type.
+            let header = (props.icaoClass === "Other") ? (props.name || "") : `${props.icaoClass || ''} - ${props.name || ''}`;
+            let type = props.type || '';
+            if (type && props.name && props.name.startsWith(type)) {
+                type = '';
+            }
+
+            // Compute the lower limit display.
+            let lowerDisplay = '';
+            if (Number(props.lowerLimitValue) === 0 &&
+                props.lowerLimitUnit &&
+                props.lowerLimitUnit.toLowerCase() === 'ft') {
+                lowerDisplay = props.lowerLimitReferenceDatum || '';
+            } else {
+                lowerDisplay = props.parsedLowerLimit || '';
+            }
+            const limits = `${lowerDisplay} -> ${props.parsedUpperLimit || ''}`;
+
+            // Create the section and set its basic HTML.
+            const section = document.createElement('div');
+            section.className = 'popup-section';
+            section.style.position = 'relative';
+            section.dataset.featureKey = featureKey;
+            section.innerHTML = `
+                <div><strong>${header}</strong></div>
+                ${type ? `<div>${type}</div>` : ''}
+                <div>${limits}</div>
+            `;
+
+            // Add frequency info if frequencies exist.
+            if (props.frequencies &&
+                Array.isArray(JSON.parse(props.frequencies)) &&
+                JSON.parse(props.frequencies).length > 0) {
+
+                const freqContainer = document.createElement("div");
+                freqContainer.style.marginTop = "4px";
+
+                let frequencies = JSON.parse(props.frequencies);
+                frequencies.sort((a, b) => (a.primary === b.primary ? 0 : (a.primary ? -1 : 1)));
+
+                frequencies.forEach(freq => {
+                    const freqElem = document.createElement("div");
+                    freqElem.style.color = "darkgreen";
+                    freqElem.style.fontSize = "0.9em";
+                    let freqDisplay = `${freq.name ? freq.name.toUpperCase() : ''} ${freq.value}`;
+                    if (freq.primary) {
+                        freqDisplay += ` <em>primary</em>`;
+                    }
+                    freqElem.innerHTML = freqDisplay;
+                    freqContainer.appendChild(freqElem);
+                });
+
+                section.appendChild(freqContainer);
+            }
+
+            // Attach the click handler. We remove any selected highlight,
+            // add the highlight to the current section, update the feature highlight source,
+            // and store the feature key.
+            section.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                popup.querySelectorAll('.popup-section').forEach(sec => sec.classList.remove('highlighted'));
+                section.classList.add('highlighted');
+                map.getSource('highlight-airspace-source').setData({
+                    type: 'FeatureCollection',
+                    features: [feature]
+                });
+                highlightedFeatureKey = featureKey;
+            });
+
+            return section;
+        }
+
+        // Original popup creation function now uses buildPopupSection().
+        function createAirspacePopup(e, features, map) {
+            // Remove any existing popup.
+            const existing = document.querySelector('.popup-menu');
+            if (existing) {
+                existing.remove();
+            }
+
+            // Create the popup container.
+            const popup = document.createElement('div');
+            popup.className = 'popup-menu';
+            popup.style.top = "50%";
+            popup.style.right = "0px";
+            popup.style.transform = "translateY(-50%)";
+            const mapEl = document.getElementById('map');
+            popup.style.maxHeight = (mapEl.clientHeight) + "px";
+
+            if (features.length) {
+                features.sort((a, b) => (b.properties.lowerLimitMeters || 0) - (a.properties.lowerLimitMeters || 0));
+
+                features.forEach(function (feature) {
+                    const section = buildPopupSection(feature, map, popup);
+                    popup.appendChild(section);
+                });
+            } else {
+                popup.innerHTML = "<p>No Airspace found at this location, MAX FL195 in France.</p>";
+            }
+
+            document.getElementById('map').appendChild(popup);
+        }
+
+        // Updated refresh function that reuses buildPopupSection().
+        function refreshAirspacePopup(map) {
+            const popup = document.querySelector('.popup-menu');
+            if (!popup) return;
+
+            // Re-project the stored point.
+            let currentPoint = map.project(lastPopupLngLat);
+
+            // Re-query features at that point.
+            let refreshedFeatures = map.queryRenderedFeatures(currentPoint, {
+                layers: ["SIV-fill", "gliding-fill", "parks-fill", "FIR-fill", "other-fill"]
+            });
+
+            // Filter the features using the same checks as before.
+            refreshedFeatures = refreshedFeatures.filter(feature => {
+                const props = feature.properties;
+                const layerId = feature.layer && feature.layer.id ? feature.layer.id : '';
+                if (layerId.includes("SIV") && !document.getElementById("toggleSIV").checked) return false;
+                if (layerId.includes("FIR") && !document.getElementById("toggleFIR").checked) return false;
+                if (layerId.includes("gliding") && props.customProperty === "LTA" && !document.getElementById("toggleLTA").checked) return false;
+                if (props.type === "Dangerous" && !document.getElementById("toggleDangerous").checked) return false;
+                if (["E", "F", "G"].includes(props.icaoClass) && !document.getElementById("toggleEFG").checked) return false;
+                return true;
+            });
+
+            // Clear the current popup contents.
+            popup.innerHTML = "";
+
+            if (refreshedFeatures.length) {
+                refreshedFeatures.sort((a, b) => (b.properties.lowerLimitMeters || 0) - (a.properties.lowerLimitMeters || 0));
+
+                refreshedFeatures.forEach(function (feature) {
+                    const section = buildPopupSection(feature, map, popup);
+                    popup.appendChild(section);
+                });
+            } else {
+                popup.innerHTML = "<p>No Airspace found at this location, MAX FL195 in France.</p>";
+            }
+
+            // Automatically reapply the previously highlighted feature, if it exists.
+            if (highlightedFeatureKey) {
+                const highlightedSection = popup.querySelector(`.popup-section[data-feature-key="${highlightedFeatureKey}"]`);
+                if (highlightedSection) {
+                    highlightedSection.click();
+                }
+            }
+        }
+
+        // Updated clearHighlight() function that accepts the map instance as a parameter.
+        function clearHighlight(map) {
+            if (map.getSource('highlight-airspace-source')) {
+                map.getSource('highlight-airspace-source').setData({ type: 'FeatureCollection', features: [] });
+            }
+            highlightedFeatureKey = null;
+            if (popupMarker) {
+                popupMarker.remove();
+                popupMarker = null;
+            }
+        }
+
+        async function initializeApp() {
+            console.log("initializeApp started");
+
+            if ('serviceWorker' in navigator) {
+                if (navigator.serviceWorker.controller) {
+                    console.log("Page already controlled by service worker:", navigator.serviceWorker.controller.scriptURL);
+                } else {
+                    console.log("No controller, registering service worker");
+                    try {
+                        const registration = await navigator.serviceWorker.register('/sw2.js', { scope: '/' });
+                        console.log("Forcing service worker update");
+                        await registration.update();
+
+                        if (registration.waiting) {
+                            console.log("Skipping waiting phase");
+                            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                        if (registration.installing) {
+                            console.log("Waiting for installing worker to activate");
+                            await new Promise(resolve => {
+                                registration.installing.addEventListener('statechange', () => {
+                                    if (registration.installing.state === 'activated') resolve();
+                                });
+                            });
+                        }
+
+                        console.log("Waiting for service worker to be ready");
+                        await navigator.serviceWorker.ready;
+                        console.log('Service Worker active:', registration.scope);
+
+                        if (!navigator.serviceWorker.controller) {
+                            console.log("No controller after registration, forcing reload");
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Service Worker registration failed:', error);
+                    }
+                }
+            } else {
+                console.log("Service workers not supported");
+            }
+
+            console.log("Initializing map");
+            const map = new maplibregl.Map({
+                container: 'map',
+                style: style,
+                center: [2.2137, 46.2276],
+                zoom: 5
+            });
+
+            map.on('load', function () {
+                console.log("Map loaded");
+
+                // Add the highlight layer source and layer.
+                if (!map.getSource('highlight-airspace-source')) {
+                    map.addSource('highlight-airspace-source', {
+                        type: 'geojson',
+                        data: { type: 'FeatureCollection', features: [] }
+                    });
+                }
+                if (!map.getLayer('highlight-airspace')) {
+                    map.addLayer({
+                        id: 'highlight-airspace',
+                        type: 'fill',
+                        source: 'highlight-airspace-source',
+                        paint: {
+                            'fill-color': 'rgba(64,224,208,0.5)',
+                            'fill-outline-color': 'rgba(64,224,208,1)'
+                        }
+                    });
+                }
+
+                // SIV layer toggle
+                const sivCheckbox = document.getElementById("toggleSIV");
+                sivCheckbox.addEventListener("change", function () {
+                    if (map.getLayer("SIV-outline")) {
+                        const visibility = sivCheckbox.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("SIV-outline", "visibility", visibility);
+                        console.log("SIV layer visibility set to", visibility);
+                    } else {
+                        console.log("Layer SIV not found");
+                    }
+                    // Refresh popup if it's open.
+                    if (document.querySelector('.popup-menu')) {
+                        refreshAirspacePopup(map);
+                    }
+                });
+
+                // FIR layer toggle
+                const firCheckbox = document.getElementById("toggleFIR");
+                firCheckbox.addEventListener("change", function () {
+                    if (map.getLayer("FIR-outline")) {
+                        const visibility = firCheckbox.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("FIR-outline", "visibility", visibility);
+                        console.log("FIR layer visibility set to", visibility);
+                    } else {
+                        console.log("Layer FIR not found");
+                    }
+                    if (document.querySelector('.popup-menu')) {
+                        refreshAirspacePopup(map);
+                    }
+                });
+
+                // Parks layer toggle
+                const parksCheckbox = document.getElementById("toggleParks");
+                parksCheckbox.addEventListener("change", function () {
+                    if (map.getLayer("parks-outline")) {
+                        const visibility = parksCheckbox.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("parks-outline", "visibility", visibility);
+                        console.log("Parks layer visibility set to", visibility);
+                    } else {
+                        console.log("Layer parks not found");
+                    }
+                    if (document.querySelector('.popup-menu')) {
+                        refreshAirspacePopup(map);
+                    }
+                });
+
+                // Gliding layer toggle
+                const glidingCheckbox = document.getElementById("toggleGliding");
+                glidingCheckbox.addEventListener("change", function () {
+                    if (map.getLayer("gliding-outline")) {
+                        const visibility = glidingCheckbox.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("gliding-outline", "visibility", visibility);
+                        console.log("Gliding layer visibility set to", visibility);
+                    } else {
+                        console.log("Layer gliding not found");
+                    }
+                    if (document.querySelector('.popup-menu')) {
+                        refreshAirspacePopup(map);
+                    }
+                });
+
+                // LTA features toggle (filter on gliding layer)
+                const ltaCheckbox = document.getElementById("toggleLTA");
+                ltaCheckbox.addEventListener("change", function () {
+                    if (map.getLayer("gliding-outline")) {
+                        if (!ltaCheckbox.checked) {
+                            map.setFilter("gliding-outline", ["!=", ["get", "customProperty"], "LTA"]);
+                        } else {
+                            map.setFilter("gliding-outline", null);
+                        }
+                    } else {
+                        console.log("Layer gliding not found for filtering LTA features");
+                    }
+                    if (document.querySelector('.popup-menu')) {
+                        refreshAirspacePopup(map);
+                    }
+                });
+
+                // Handler for filtering the other-fill and other-outline layers; add popup refresh.
+                function updateOtherLayerFilter() {
+                    let filter = ["all"];
+                    if (!document.getElementById("toggleProhibited").checked) {
+                        filter.push(["!=", ["get", "type"], "Prohibited"]);
+                    }
+                    if (!document.getElementById("toggleRestricted").checked) {
+                        filter.push(["!=", ["get", "type"], "Restricted"]);
+                    }
+                    if (!document.getElementById("toggleDangerous").checked) {
+                        filter.push(["!=", ["get", "type"], "Dangerous"]);
+                    }
+                    if (!document.getElementById("toggleABCD").checked) {
+                        filter.push(["!=", ["get", "icaoClass"], "A"]);
+                        filter.push(["!=", ["get", "icaoClass"], "B"]);
+                        filter.push(["!=", ["get", "icaoClass"], "C"]);
+                        filter.push(["!=", ["get", "icaoClass"], "D"]);
+                    }
+                    if (!document.getElementById("toggleEFG").checked) {
+                        filter.push(["!=", ["get", "icaoClass"], "E"]);
+                        filter.push(["!=", ["get", "icaoClass"], "F"]);
+                        filter.push(["!=", ["get", "icaoClass"], "G"]);
+                    }
+                    if (!document.getElementById("toggleZSM").checked) {
+                        filter.push(["!=", ["get", "type"], "ZSM"]);
+                    }
+                    if (!document.getElementById("toggleRMZ").checked) {
+                        filter.push(["!=", ["get", "type"], "RMZ"]);
+                    }
+                    if (!document.getElementById("toggleTMZ").checked) {
+                        filter.push(["!=", ["get", "type"], "TMZ"]);
+                    }
+                    if (!document.getElementById("toggleParaVoltige").checked) {
+                        filter.push(["!=", ["get", "type"], "Para/voltige"]);
+                    }
+                    const finalFilter = filter.length > 1 ? filter : null;
+                    if (map.getLayer("other-fill")) {
+                        map.setFilter("other-fill", finalFilter);
+                    }
+                    if (map.getLayer("other-outline")) {
+                        map.setFilter("other-outline", finalFilter);
+                    }
+                    console.log("Other layer filter updated:", finalFilter);
+                    if (document.querySelector('.popup-menu')) {
+                        refreshAirspacePopup(map);
+                    }
+                }
+
+                // Attach change event listeners to the other layer checkboxes.
+                [
+                    document.getElementById("toggleProhibited"),
+                    document.getElementById("toggleRestricted"),
+                    document.getElementById("toggleDangerous"),
+                    document.getElementById("toggleABCD"),
+                    document.getElementById("toggleEFG"),
+                    document.getElementById("toggleZSM"),
+                    document.getElementById("toggleRMZ"),
+                    document.getElementById("toggleTMZ"),
+                    document.getElementById("toggleParaVoltige")
+                ].forEach(checkbox => {
+                    checkbox.addEventListener("change", updateOtherLayerFilter);
+                });
+
+                // -----------------------------
+                // Map click handler (inside #map) to open a new popup or, if already open, close it.
+                // -----------------------------
+                map.on('click', function (e) {
+                    // Store the clicked location.
+                    lastPopupLngLat = e.lngLat;
+
+                    const existingPopup = document.querySelector('.popup-menu');
+                    if (existingPopup) {
+                        // Clicking on the map when a popup is open: remove it and clear highlight & marker.
+                        existingPopup.remove();
+                        clearHighlight(map);
+                        return;
+                    }
+
+                    // Create a marker at the clicked location.
+                    if (popupMarker) {
+                        popupMarker.remove();
+                    }
+                    popupMarker = new maplibregl.Marker({ color: 'red' })
+                        .setLngLat(e.lngLat)
+                        .addTo(map);
+
+                    // Query features and apply filtering.
+                    let currentPoint = map.project(lastPopupLngLat);
+                    let features = map.queryRenderedFeatures(currentPoint, {
+                        layers: ["SIV-fill", "gliding-fill", "parks-fill", "FIR-fill", "other-fill"]
+                    });
+                    features = features.filter(function (feature) {
+                        const props = feature.properties;
+                        const layerId = feature.layer && feature.layer.id ? feature.layer.id : '';
+                        if (layerId.includes("SIV") && !document.getElementById("toggleSIV").checked) return false;
+                        if (layerId.includes("FIR") && !document.getElementById("toggleFIR").checked) return false;
+                        if (layerId.includes("gliding") && props.customProperty === "LTA" && !document.getElementById("toggleLTA").checked) return false;
+                        if (props.type === "Dangerous" && !document.getElementById("toggleDangerous").checked) return false;
+                        if (["E", "F", "G"].includes(props.icaoClass) && !document.getElementById("toggleEFG").checked) return false;
+                        return true;
+                    });
+
+                    // Create the popup (which internally uses buildPopupSection()).
+                    createAirspacePopup(e, features, map);
+                    console.log("Features at click (filtered):", features.map(f => f.properties));
+                });
+
+                /*
+                  Add a listener to refresh the popup when zoom changes.
+                  You can use 'zoomend' (fired when the zooming completes) or
+                  'moveend' (if you want to catch pans as well).
+                */
+                map.on('zoomend', function () {
+                    const popup = document.querySelector('.popup-menu');
+                    if (popup && lastPopupLngLat) {
+                        refreshAirspacePopup(map);
+                    }
+                });
+            });
+
+            map.on('error', function (e) {
+                console.error("Map error:", e);
+            });
+        }
+
+        console.log("Calling initializeApp");
+        initializeApp();
+    </script>
+</body>
+
+</html>
