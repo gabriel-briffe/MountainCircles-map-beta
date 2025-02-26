@@ -1,4 +1,4 @@
-
+const BASE_PATH = '/MountainCircles-map-beta';
 
 const style = {
   version: 8,
@@ -12,23 +12,23 @@ const style = {
     },
     "parks": {
       type: "geojson",
-      data: "/data/parks.geojson"
+      data: `${BASE_PATH}/data/parks.geojson`
     },
     "SIV": {
       type: "geojson",
-      data: "/data/SIV.geojson"
+      data: `${BASE_PATH}/data/SIV.geojson`
     },
     "FIR": {
       type: "geojson",
-      data: "/data/FIR.geojson"
+      data: `${BASE_PATH}/data/FIR.geojson`
     },
     "gliding": {
       type: "geojson",
-      data: "/data/gliding.geojson"
+      data: `${BASE_PATH}/data/gliding.geojson`
     },
     "other": {
       type: "geojson",
-      data: "/data/other.geojson"
+      data: `${BASE_PATH}/data/other.geojson`
     }
   },
   layers: [
