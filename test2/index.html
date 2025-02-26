@@ -186,13 +186,21 @@
             // and store the feature key.
             section.addEventListener('click', function (ev) {
                 ev.stopPropagation();
-                popup.querySelectorAll('.popup-section').forEach(sec => sec.classList.remove('highlighted'));
-                section.classList.add('highlighted');
-                map.getSource('highlight-airspace-source').setData({
-                    type: 'FeatureCollection',
-                    features: [feature]
-                });
-                highlightedFeatureKey = featureKey;
+                if (section.classList.contains('highlighted')) {
+                    // If already highlighted, remove the highlight and clear airspace
+                    section.classList.remove('highlighted');
+                    map.getSource('highlight-airspace-source').setData({ type: 'FeatureCollection', features: [] });
+                    highlightedFeatureKey = null;
+                } else {
+                    // Remove highlight from any other sections
+                    popup.querySelectorAll('.popup-section').forEach(sec => sec.classList.remove('highlighted'));
+                    section.classList.add('highlighted');
+                    map.getSource('highlight-airspace-source').setData({
+                        type: 'FeatureCollection',
+                        features: [feature]
+                    });
+                    highlightedFeatureKey = featureKey;
+                }
             });
 
             return section;
