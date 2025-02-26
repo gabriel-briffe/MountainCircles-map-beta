@@ -108,6 +108,11 @@
         .altitude-line {
             /* Additional styling if needed */
         }
+
+        /* Added CSS rule for highlighted colorBand */
+        .colorBand-highlighted {
+            opacity: 1 !important;
+        }
     </style>
 </head>
 
@@ -166,14 +171,14 @@
             const props = feature.properties;
             const featureKey = getFeatureKey(props);
 
-            // Format header and type.
+            // Format header and type
             let header = (props.icaoClass === "Other") ? (props.name || "") : `${props.icaoClass || ''} - ${props.name || ''}`;
             let type = props.type || '';
             if (type && props.name && props.name.startsWith(type)) {
                 type = '';
             }
 
-            // Compute the lower limit display.
+            // Compute the lower limit display
             let lowerDisplay = '';
             if (Number(props.lowerLimitValue) === 0 &&
                 props.lowerLimitUnit &&
@@ -184,10 +189,10 @@
             }
             const limits = `${lowerDisplay} -> ${props.parsedUpperLimit || ''}`;
 
-            // Create the section and set its basic HTML.
+            // Create the section
             const section = document.createElement('div');
             section.className = 'popup-section';
-            section.style.position = 'relative';
+            section.style.position = 'relative'; // Ensure relative positioning for absolute child
             section.dataset.featureKey = featureKey;
             section.innerHTML = `
                 <div><strong>${header}</strong></div>
@@ -195,11 +200,30 @@
                 <div>${limits}</div>
             `;
 
-            // Add frequency info if frequencies exist.
+            // Add the colored band
+            const colorBand = document.createElement('div');
+            colorBand.className = 'colorBand';
+            colorBand.style.position = 'absolute';
+            colorBand.style.left = '-10px'; // Position 10px to the left
+            colorBand.style.top = '0';
+            colorBand.style.width = '10px';
+            colorBand.style.height = '100%';
+            let color;
+            if (props.type === "gliding") {
+                color = COLOR_MAPPING["gliding"];
+            } else if (props.icaoClass === "Other") {
+                color = COLOR_MAPPING[props.type];
+            } else {
+                color = COLOR_MAPPING[props.icaoClass];
+            }
+            colorBand.style.backgroundColor = color;
+            colorBand.style.opacity = '0.7'; // Match bar opacity for consistency
+            section.appendChild(colorBand);
+
+            // Add frequency info if frequencies exist
             if (props.frequencies &&
                 Array.isArray(JSON.parse(props.frequencies)) &&
                 JSON.parse(props.frequencies).length > 0) {
-
                 const freqContainer = document.createElement("div");
                 freqContainer.style.marginTop = "4px";
 
@@ -224,7 +248,6 @@
             return section;
         }
 
-
         function createAirspacePopup(e, features, map) {
             // Remove any existing popup
             const existing = document.querySelector('.popup-menu');
@@ -245,7 +268,7 @@
             // Create containers
             const crossSectionContainer = document.createElement('div');
             crossSectionContainer.className = 'cross-section';
-            crossSectionContainer.style.borderRight = "1px solid #ccc";
+            crossSectionContainer.style.borderRight = "4px solid #ccc";
             crossSectionContainer.style.padding = "0px";
             crossSectionContainer.style.background = "#f0f0f0";
             crossSectionContainer.style.position = "relative";
@@ -271,20 +294,27 @@
                     section.addEventListener('click', () => {
                         const alreadyHighlighted = section.classList.contains('highlighted');
                         const bar = barRefs.get(index);
-
                         if (alreadyHighlighted) {
-                            // Unhighlight everything
+                            // Unhighlight everything including the colorBand
                             section.classList.remove('highlighted');
+                            let cb = section.querySelector('.colorBand');
+                            if(cb) cb.classList.remove('colorBand-highlighted');
                             if (bar) bar.classList.remove('highlighted-bar');
                             map.getSource('highlight-airspace-source').setData({ type: 'FeatureCollection', features: [] });
                             highlightedFeatureKey = null;
                         } else {
-                            // Remove highlight from all sections and bars
-                            sectionRefs.forEach(s => s.classList.remove('highlighted'));
+                            // Remove highlight from all sections, bars, and colorBands
+                            sectionRefs.forEach(s => {
+                                s.classList.remove('highlighted');
+                                let cb = s.querySelector('.colorBand');
+                                if(cb) cb.classList.remove('colorBand-highlighted');
+                            });
                             barRefs.forEach(b => b.classList.remove('highlighted-bar'));
 
-                            // Highlight this section and bar
+                            // Highlight this section, bar, and its colorBand
                             section.classList.add('highlighted');
+                            let currentBand = section.querySelector('.colorBand');
+                            if(currentBand) currentBand.classList.add('colorBand-highlighted');
                             if (bar) bar.classList.add('highlighted-bar');
 
                             // Highlight the feature on the map
@@ -374,7 +404,16 @@
                         bar.style.bottom = `${yLower}%`;
                         bar.style.width = `${barWidth}px`;
                         bar.style.height = `${barHeight}%`;
-                        bar.style.backgroundColor = `${COLOR_MAPPING[feature.properties.icaoClass != "Other" ? feature.properties.icaoClass : feature.properties.type]}`;
+                        let color;
+                        // if type is gliding, use gliding color, if icaoClass is Other, use type, if icaoClass is not Other and type is not gliding, use icaoClass
+                        if (feature.properties.type === "gliding") {
+                            color = COLOR_MAPPING["gliding"];
+                        } else if (feature.properties.icaoClass === "Other") {
+                            color = COLOR_MAPPING[feature.properties.type ];
+                        } else {
+                            color = COLOR_MAPPING[feature.properties.icaoClass];
+                        }
+                        bar.style.backgroundColor = `${color}`;
                         bar.style.opacity = "0.7";
                         bar.style.cursor = "pointer";
                         barRefs.set(index, bar);
@@ -385,14 +424,29 @@
 
                             if (alreadyHighlighted) {
                                 bar.classList.remove('highlighted-bar');
-                                if (section) section.classList.remove('highlighted');
+                                if (section) {
+                                    section.classList.remove('highlighted');
+                                    let cb = section.querySelector('.colorBand');
+                                    if(cb) cb.classList.remove('colorBand-highlighted');
+                                }
                                 map.getSource('highlight-airspace-source').setData({ type: 'FeatureCollection', features: [] });
                                 highlightedFeatureKey = null;
                             } else {
-                                sectionRefs.forEach(s => s.classList.remove('highlighted'));
+                                // Unhighlight all sections, bars, and colorBands
+                                sectionRefs.forEach(s => {
+                                    s.classList.remove('highlighted');
+                                    let cb = s.querySelector('.colorBand');
+                                    if(cb) cb.classList.remove('colorBand-highlighted');
+                                });
                                 barRefs.forEach(b => b.classList.remove('highlighted-bar'));
+
+                                // Highlight this section, its colorBand, and the bar
+                                if (section) {
+                                    section.classList.add('highlighted');
+                                    let cb = section.querySelector('.colorBand');
+                                    if(cb) cb.classList.add('colorBand-highlighted');
+                                }
                                 bar.classList.add('highlighted-bar');
-                                if (section) section.classList.add('highlighted');
                                 map.getSource('highlight-airspace-source').setData({
                                     type: 'FeatureCollection',
                                     features: [feature]
@@ -682,9 +736,9 @@
                         filter.push(["!=", ["get", "type"], "Para/voltige"]);
                     }
                     const finalFilter = filter.length > 1 ? filter : null;
-                    if (map.getLayer("other-fill")) {
-                        map.setFilter("other-fill", finalFilter);
-                    }
+                    // if (map.getLayer("other-fill")) {
+                    //     map.setFilter("other-fill", finalFilter);
+                    // }
                     if (map.getLayer("other-outline")) {
                         map.setFilter("other-outline", finalFilter);
                     }
@@ -721,6 +775,7 @@
                         // Clicking on the map when a popup is open: remove it and clear highlight & marker.
                         existingPopup.remove();
                         clearHighlight(map);
+                        lastPopupLngLat = null;
                         return;
                     }
 
