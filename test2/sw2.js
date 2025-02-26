@@ -38,6 +38,8 @@ const REFERENCE_DATUM_MAPPING = {
 };
 
 const FT_TO_M = 0.3048;
+const BASE_PATH = '/MountainCircles-map-beta';
+
 // <--------------------helper functions-------------------->
 
 function translateData(props) {
@@ -246,7 +248,9 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
     console.log("Fetch event for:", url.href);
-    if (url.pathname.startsWith('/data/')) {
+    //add basepath
+    // if (url.pathname.startsWith(`/data/`)) {
+    if (url.pathname.startsWith(`${BASE_PATH}/data/`)) {
         event.respondWith((async () => {
             try {
                 console.log("Opening cache");
@@ -259,8 +263,9 @@ self.addEventListener('fetch', event => {
 
                 // Fetch and process /merged_asp.geojson only once
                 if (!geojsonPromise) {
-                    console.log("Initiating fetch for /merged_asp.geojson");
-                    geojsonPromise = fetch('/merged_asp.geojson')
+                    console.log("Initiating fetch for merged_asp.geojson using BASE_PATH");
+                    // geojsonPromise = fetch(`merged_asp.geojson`)
+                    geojsonPromise = fetch(`${BASE_PATH}/merged_asp.geojson`)
                         .then(response => {
                             console.log("Fetch status:", response.status);
                             if (!response.ok) {
