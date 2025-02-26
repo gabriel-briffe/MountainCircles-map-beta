@@ -42,7 +42,7 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
             padding: 0px;
             z-index: 1000;
-            max-width: 400px;
+            max-width: 50%;
             overflow-y: auto;
             overflow-x: hidden;
         }
@@ -220,8 +220,8 @@
             popup.style.top = "50%";
             popup.style.right = "0px";
             popup.style.transform = "translateY(-50%)";
-            const mapEl = document.getElementById('map');
-            popup.style.maxHeight = (mapEl.clientHeight) + "px";
+            const mapEl = map.getContainer();
+            popup.style.maxHeight = mapEl.clientHeight + "px";
 
             if (features.length) {
                 features.sort((a, b) => (b.properties.lowerLimitMeters || 0) - (a.properties.lowerLimitMeters || 0));
@@ -564,6 +564,22 @@
                     const popup = document.querySelector('.popup-menu');
                     if (popup && lastPopupLngLat) {
                         refreshAirspacePopup(map);
+                    }
+                });
+
+                // Attach a listener to update popup max-height on window resize and orientation change
+                window.addEventListener('resize', function () {
+                    const popup = document.querySelector('.popup-menu');
+                    if (popup) {
+                        const mapEl = map.getContainer();
+                        popup.style.maxHeight = mapEl.clientHeight + "px";
+                    }
+                });
+                window.addEventListener('orientationchange', function () {
+                    const popup = document.querySelector('.popup-menu');
+                    if (popup) {
+                        const mapEl = map.getContainer();
+                        popup.style.maxHeight = mapEl.clientHeight + "px";
                     }
                 });
             });
