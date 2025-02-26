@@ -298,7 +298,7 @@
                 } else {
                     console.log("No controller, registering service worker");
                     try {
-                        const registration = await navigator.serviceWorker.register('/sw2.js', { scope: '/' });
+                        const registration = await navigator.serviceWorker.register('sw2.js', { scope: './' });
                         console.log("Forcing service worker update");
                         await registration.update();
 
