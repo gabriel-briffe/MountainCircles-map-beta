@@ -38,7 +38,7 @@ const REFERENCE_DATUM_MAPPING = {
 };
 
 const FT_TO_M = 0.3048;
-const BASE_PATH = '/MountainCircles-map-beta';
+const BASE_PATH = '/MountainCircles-map-beta/test2';
 
 // <--------------------helper functions-------------------->
 

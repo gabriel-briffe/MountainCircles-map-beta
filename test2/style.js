@@ -1,4 +1,4 @@
-const BASE_PATH = '/MountainCircles-map-beta';
+const BASE_PATH = '/MountainCircles-map-beta/test2';
 
 const style = {
   version: 8,
