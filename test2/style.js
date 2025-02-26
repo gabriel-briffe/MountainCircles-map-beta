@@ -1,6 +1,7 @@
 import { COLOR_MAPPING } from "./mappings.js";
 
-const BASE_PATH = '.';
+const BASE_PATH = '/MountainCircles-map-beta/test2';
+// const BASE_PATH = '.';
 
 const style = {
   version: 8,
