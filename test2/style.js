@@ -1,4 +1,6 @@
-const BASE_PATH = '/MountainCircles-map-beta/test2';
+import { COLOR_MAPPING } from "./mappings.js";
+
+const BASE_PATH = '.';
 
 const style = {
   version: 8,
@@ -44,7 +46,7 @@ const style = {
       type: "line",
       source: "parks",
       paint: {
-        "line-color": "rgb(255, 0, 0)",
+        "line-color": COLOR_MAPPING["Prohibited"],
         "line-dasharray": [3,3],
         "line-width": 2
       }
@@ -54,7 +56,7 @@ const style = {
       type: "fill",
       source: "parks",
       paint: {
-        "fill-color": "rgb(255, 0, 0)",
+        "fill-color": COLOR_MAPPING["Prohibited"],
         "fill-opacity": 0
       }
     },
@@ -66,7 +68,7 @@ const style = {
         "visibility": "none"
       },
       paint: {
-        "line-color": "rgb(0, 160, 0)",
+        "line-color": COLOR_MAPPING["SIV"],
         "line-width": 2,
         "line-dasharray": [2,5]
       }
@@ -87,7 +89,7 @@ const style = {
         "visibility": "none"
       },
       paint: {
-        "line-color": "rgb(0, 0, 255)",
+        "line-color": COLOR_MAPPING["FIR"],
         "line-width": 1
       }
     },
@@ -104,7 +106,7 @@ const style = {
       type: "line",
       source: "gliding",
       paint: {
-        "line-color": "rgb(255, 255, 0)",
+        "line-color": COLOR_MAPPING["gliding"],
         "line-width": 2
       }
     },
@@ -133,19 +135,19 @@ const style = {
         "line-color": [
           "case",
           // if ICAO class is A or B 
-          ["all", ["in", ["get", "icaoClass"], ["literal", ["A", "B"]]]], "rgb(255, 0, 0)",
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["A", "B"]]]], COLOR_MAPPING["A"],
           // if ICAO class is C or D 
-          ["all", ["in", ["get", "icaoClass"], ["literal", ["C", "D"]]]], "rgb(0, 0, 255)",
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["C", "D"]]]], COLOR_MAPPING["D"],
           // if ICAO class is E, F, or G 
-          ["all", ["in", ["get", "icaoClass"], ["literal", ["E", "F", "G"]]]], "rgb(0, 83, 0)",
+          ["all", ["in", ["get", "icaoClass"], ["literal", ["E", "F", "G"]]]], COLOR_MAPPING["E"],
           // If the TYPE is Prohibited, Restricted, or Dangerous
-          ["all", ["in", ["get", "type"], ["literal", ["Prohibited", "Restricted", "Dangerous"]]]], "rgb(255, 0, 0)",
+          ["all", ["in", ["get", "type"], ["literal", ["Prohibited", "Restricted", "Dangerous"]]]], COLOR_MAPPING["Prohibited"],
           // if type is ZSM or RMZ, color is orange
-          ["all", ["in", ["get", "type"], ["literal", ["ZSM", "RMZ"]]]], "rgb(255, 165, 0)",
+          ["all", ["in", ["get", "type"], ["literal", ["ZSM", "RMZ"]]]], COLOR_MAPPING["ZSM"],
           // if type is TMZ or Para/voltige, color is purple
-          ["all", ["in", ["get", "type"], ["literal", ["TMZ", "Para/voltige"]]]], "rgb(128, 0, 128)",
+          ["all", ["in", ["get", "type"], ["literal", ["TMZ", "Para/voltige"]]]], COLOR_MAPPING["TMZ"],
           // Default color if no condition matches
-          "rgb(0, 0, 0)"
+          COLOR_MAPPING["other"]
         ],
         "line-width": [
           "case",
@@ -166,14 +168,14 @@ const style = {
         "fill-color": [
           "case",
           // prohibited
-          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], "rgb(255, 0, 0)",
+          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], COLOR_MAPPING["Prohibited"],
           // Para/voltige purple
-          ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], "rgb(128, 0, 128)",
+          ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], COLOR_MAPPING["TMZ"],
           // zsm
-          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], "rgb(255, 165, 0)",
+          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], COLOR_MAPPING["ZSM"],
           // rmz
-          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], "rgb(255, 165, 0)",
-          "rgb(0, 0, 0, 0)"
+          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], COLOR_MAPPING["RMZ"],
+          COLOR_MAPPING["other"]
         ],
         "fill-opacity": [
           "case",
