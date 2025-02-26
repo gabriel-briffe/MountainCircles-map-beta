@@ -82,8 +82,15 @@
             /* Optional: smooth transitions */
         }
 
+        .airspace-bar.highlighted-bar {
+            border: 2px solid rgba(64, 224, 208, 1);
+            margin-left: -2px;
+            margin-bottom: -2px;
+            opacity: 1 !important;
+        }
+
         .altitude-label {
-            font-size: 12px;
+            font-size: 10px;
             font-weight: bold;
             padding: 0;
             white-space: nowrap;
@@ -92,7 +99,10 @@
             border-radius: 10px;
             padding-left: 2px;
             padding-right: 2px;
-            /* Ensure text is centered */
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
 
         .altitude-line {
@@ -211,61 +221,9 @@
                 section.appendChild(freqContainer);
             }
 
-            // Attach the click handler. We remove any selected highlight,
-            // add the highlight to the current section, update the feature highlight source,
-            // and store the feature key.
-            section.addEventListener('click', function (ev) {
-                ev.stopPropagation();
-                if (section.classList.contains('highlighted')) {
-                    // If already highlighted, remove the highlight and clear airspace
-                    section.classList.remove('highlighted');
-                    map.getSource('highlight-airspace-source').setData({ type: 'FeatureCollection', features: [] });
-                    highlightedFeatureKey = null;
-                } else {
-                    // Remove highlight from any other sections
-                    popup.querySelectorAll('.popup-section').forEach(sec => sec.classList.remove('highlighted'));
-                    section.classList.add('highlighted');
-                    map.getSource('highlight-airspace-source').setData({
-                        type: 'FeatureCollection',
-                        features: [feature]
-                    });
-                    highlightedFeatureKey = featureKey;
-                }
-            });
-
             return section;
         }
 
-        // // Original popup creation function now uses buildPopupSection().
-        // function createAirspacePopup(e, features, map) {
-        //     // Remove any existing popup.
-        //     const existing = document.querySelector('.popup-menu');
-        //     if (existing) {
-        //         existing.remove();
-        //     }
-
-        //     // Create the popup container.
-        //     const popup = document.createElement('div');
-        //     popup.className = 'popup-menu';
-        //     popup.style.top = "50%";
-        //     popup.style.right = "0px";
-        //     popup.style.transform = "translateY(-50%)";
-        //     const mapEl = map.getContainer();
-        //     popup.style.maxHeight = mapEl.clientHeight + "px";
-
-        //     if (features.length) {
-        //         features.sort((a, b) => (b.properties.lowerLimitMeters || 0) - (a.properties.lowerLimitMeters || 0));
-
-        //         features.forEach(function (feature) {
-        //             const section = buildPopupSection(feature, map, popup);
-        //             popup.appendChild(section);
-        //         });
-        //     } else {
-        //         popup.innerHTML = "<p>No Airspace found at this location, MAX FL195 in France.</p>";
-        //     }
-
-        //     document.getElementById('map').appendChild(popup);
-        // }
 
         function createAirspacePopup(e, features, map) {
             // Remove any existing popup
@@ -297,11 +255,47 @@
             contentContainer.style.padding = "10px";
             contentContainer.style.overflowY = "auto";
 
-            // Build content first
+            // Store references to bars and sections for highlighting
+            const barRefs = new Map(); // Map feature index to bar element
+            const sectionRefs = new Map(); // Map feature index to section element
+
+            // Build content first (sections)
             if (features.length) {
                 features.sort((a, b) => (b.properties.lowerLimitMeters || 0) - (a.properties.lowerLimitMeters || 0));
-                features.forEach(feature => {
+                features.forEach((feature, index) => {
                     const section = buildPopupSection(feature, map, popup);
+                    section.dataset.featureIndex = index; // Assign unique identifier
+                    sectionRefs.set(index, section);
+
+                    // Click handler for sections
+                    section.addEventListener('click', () => {
+                        const alreadyHighlighted = section.classList.contains('highlighted');
+                        const bar = barRefs.get(index);
+
+                        if (alreadyHighlighted) {
+                            // Unhighlight everything
+                            section.classList.remove('highlighted');
+                            if (bar) bar.classList.remove('highlighted-bar');
+                            map.getSource('highlight-airspace-source').setData({ type: 'FeatureCollection', features: [] });
+                            highlightedFeatureKey = null;
+                        } else {
+                            // Remove highlight from all sections and bars
+                            sectionRefs.forEach(s => s.classList.remove('highlighted'));
+                            barRefs.forEach(b => b.classList.remove('highlighted-bar'));
+
+                            // Highlight this section and bar
+                            section.classList.add('highlighted');
+                            if (bar) bar.classList.add('highlighted-bar');
+
+                            // Highlight the feature on the map
+                            map.getSource('highlight-airspace-source').setData({
+                                type: 'FeatureCollection',
+                                features: [feature]
+                            });
+                            highlightedFeatureKey = getFeatureKey(feature.properties);
+                        }
+                    });
+
                     contentContainer.appendChild(section);
                 });
             } else {
@@ -313,31 +307,29 @@
             popup.appendChild(contentContainer);
             document.getElementById('map').appendChild(popup);
 
-            // Now build cross-section with actual height
+            // Build cross-section with bars
             const heightScale = popup.clientHeight;
-            console.log("Popup height:", heightScale); // Debug height
-
             if (features.length) {
                 const maxUpperLimit = Math.max(...features.map(f => f.properties.upperLimitMeters || 0));
-                console.log("Max upper limit:", maxUpperLimit); // Debug max limit
                 const barWidth = 20;
                 const barSpacing = 5;
 
-                // Track bar positions and collect unique altitudes
+                // Track bar positions and collect unique altitudes with parsed values
                 const columns = [];
-                const altitudeSet = new Set();
+                const altitudeSet = new Set(); // Will store [meters, parsed] tuples
                 features.forEach((feature, index) => {
-                    const lowerLimit = feature.properties.lowerLimitMeters || 0;
-                    const upperLimit = feature.properties.upperLimitMeters || 0;
+                    const lowerLimitMeters = feature.properties.lowerLimitMeters || 0;
+                    const upperLimitMeters = feature.properties.upperLimitMeters || 0;
+                    const parsedLowerLimit = feature.properties.parsedLowerLimit || '';
+                    const parsedUpperLimit = feature.properties.parsedUpperLimit || '';
 
-                    altitudeSet.add(lowerLimit);
-                    altitudeSet.add(upperLimit);
+                    // Add tuples to the Set
+                    altitudeSet.add(JSON.stringify([lowerLimitMeters, parsedLowerLimit]));
+                    altitudeSet.add(JSON.stringify([upperLimitMeters, parsedUpperLimit]));
 
-                    const yUpper = (upperLimit / maxUpperLimit) * 100; // % from top
-                    const yLower = (lowerLimit / maxUpperLimit) * 100; // % from top
+                    const yUpper = (upperLimitMeters / maxUpperLimit) * 100;
+                    const yLower = (lowerLimitMeters / maxUpperLimit) * 100;
                     const barHeight = yUpper - yLower;
-
-                    console.log(`Feature ${index}: upper=${upperLimit}m (${yUpper}%), lower=${lowerLimit}m (${yLower}%), height=${barHeight}%`); // Debug bar values
 
                     let placed = false;
                     for (let col of columns) {
@@ -345,34 +337,34 @@
                         for (let existingBar of col) {
                             const existingLower = existingBar.lowerLimit;
                             const existingUpper = existingBar.upperLimit;
-                            if (!(upperLimit <= existingLower || lowerLimit >= existingUpper)) {
+                            if (!(upperLimitMeters <= existingLower || lowerLimitMeters >= existingUpper)) {
                                 canPlace = false;
                                 break;
                             }
                         }
                         if (canPlace) {
-                            col.push({ lowerLimit, upperLimit, feature });
+                            col.push({ lowerLimit: lowerLimitMeters, upperLimit: upperLimitMeters, feature, index });
                             placed = true;
                             break;
                         }
                     }
                     if (!placed) {
-                        columns.push([{ lowerLimit, upperLimit, feature }]);
+                        columns.push([{ lowerLimit: lowerLimitMeters, upperLimit: upperLimitMeters, feature, index }]);
                     }
                 });
 
-                // Draw bars
+                // Draw bars with click handlers (unchanged)
                 let totalWidth = 0;
                 columns.forEach((column, colIndex) => {
                     const xPos = barSpacing + colIndex * (barWidth + barSpacing);
-                    column.forEach(({ lowerLimit, upperLimit, feature }) => {
+                    column.forEach(({ lowerLimit, upperLimit, feature, index }) => {
                         const yUpper = (upperLimit / maxUpperLimit) * 100;
                         const yLower = (lowerLimit / maxUpperLimit) * 100;
                         const barHeight = yUpper - yLower;
 
                         if (barHeight <= 0) {
                             console.warn(`Invalid bar height for ${feature.properties.icaoClass || feature.properties.type}: ${barHeight}%`);
-                            return; // Skip invalid bars
+                            return;
                         }
 
                         const bar = document.createElement('div');
@@ -384,6 +376,31 @@
                         bar.style.height = `${barHeight}%`;
                         bar.style.backgroundColor = `${COLOR_MAPPING[feature.properties.icaoClass != "Other" ? feature.properties.icaoClass : feature.properties.type]}`;
                         bar.style.opacity = "0.7";
+                        bar.style.cursor = "pointer";
+                        barRefs.set(index, bar);
+
+                        bar.addEventListener('click', () => {
+                            const section = sectionRefs.get(index);
+                            const alreadyHighlighted = bar.classList.contains('highlighted-bar');
+
+                            if (alreadyHighlighted) {
+                                bar.classList.remove('highlighted-bar');
+                                if (section) section.classList.remove('highlighted');
+                                map.getSource('highlight-airspace-source').setData({ type: 'FeatureCollection', features: [] });
+                                highlightedFeatureKey = null;
+                            } else {
+                                sectionRefs.forEach(s => s.classList.remove('highlighted'));
+                                barRefs.forEach(b => b.classList.remove('highlighted-bar'));
+                                bar.classList.add('highlighted-bar');
+                                if (section) section.classList.add('highlighted');
+                                map.getSource('highlight-airspace-source').setData({
+                                    type: 'FeatureCollection',
+                                    features: [feature]
+                                });
+                                highlightedFeatureKey = getFeatureKey(feature.properties);
+                            }
+                        });
+
                         crossSectionContainer.appendChild(bar);
                     });
                     totalWidth = xPos + barWidth;
@@ -391,20 +408,22 @@
 
                 // Set container width
                 totalWidth += barSpacing;
-                const width = Math.max(totalWidth, 50);
+                const width = Math.max(totalWidth, 60);
                 crossSectionContainer.style.width = `${width}px`;
 
-                // Add unique altitude labels centered across the cross-section
-                const altitudes = Array.from(altitudeSet).sort((a, b) => b - a);
-                altitudes.forEach(altitude => {
-                    const yPos = (altitude / maxUpperLimit) * 100; // % from top, but we'll adjust for bottom
+                // Add unique altitude labels using parsed values
+                const altitudes = Array.from(altitudeSet)
+                    .map(item => JSON.parse(item)) // Convert back from string to [meters, parsed] array
+                    .sort((a, b) => b[0] - a[0]); // Sort by meters (first element)
+                altitudes.forEach(([altitudeMeters, parsedAltitude]) => {
+                    const yPos = (altitudeMeters / maxUpperLimit) * 100;
                     const label = document.createElement('div');
                     label.className = 'altitude-label';
-                    label.textContent = `${Math.round(altitude)} m`;
+                    label.textContent = parsedAltitude; // Use the parsed value instead of meters
                     label.style.position = "absolute";
-                    label.style.left = "50%"; // Center horizontally
-                    label.style.bottom = `calc(${yPos}% - 20px)`; // Position from bottom, offset above line
-                    label.style.transform = "translateX(-50%)"; // Center on its own width
+                    label.style.left = "50%";
+                    label.style.bottom = `calc(${yPos}% - 15px)`;
+                    label.style.transform = "translateX(-50%)";
                     crossSectionContainer.appendChild(label);
 
                     const line = document.createElement('div');
@@ -419,21 +438,16 @@
                 });
             }
         }
-
-
         function refreshAirspacePopup(map) {
-            const popup = document.querySelector('.popup-menu');
-            if (!popup) return;
+            if (!lastPopupLngLat) return; // No popup to refresh if no location is stored
 
-            // Re-project the stored point.
-            let currentPoint = map.project(lastPopupLngLat);
-
-            // Re-query features at that point.
+            // Re-query features at the last clicked point
+            const currentPoint = map.project(lastPopupLngLat);
             let refreshedFeatures = map.queryRenderedFeatures(currentPoint, {
                 layers: ["SIV-fill", "gliding-fill", "parks-fill", "FIR-fill", "other-fill"]
             });
 
-            // Filter the features using the same checks as before.
+            // Apply the same filtering as in the click handler
             refreshedFeatures = refreshedFeatures.filter(feature => {
                 const props = feature.properties;
                 const layerId = feature.layer && feature.layer.id ? feature.layer.id : '';
@@ -445,35 +459,25 @@
                 return true;
             });
 
-            // Clear the current popup contents.
-            popup.innerHTML = "";
-
-            if (refreshedFeatures.length) {
-                refreshedFeatures.sort((a, b) => (b.properties.lowerLimitMeters || 0) - (a.properties.lowerLimitMeters || 0));
-
-                refreshedFeatures.forEach(function (feature) {
-                    const section = buildPopupSection(feature, map, popup);
-                    popup.appendChild(section);
-                });
-            } else {
-                popup.innerHTML = "<p>No Airspace found at this location, MAX FL195 in France.</p>";
+            // Remove the existing popup
+            const existingPopup = document.querySelector('.popup-menu');
+            if (existingPopup) {
+                existingPopup.remove();
             }
 
-            // Automatically reapply the previously highlighted feature, if it exists.
+            // Recreate the popup with the refreshed features
+            createAirspacePopup({ lngLat: lastPopupLngLat }, refreshedFeatures, map);
+
+            // Reapply the highlight if there was a highlighted feature
             if (highlightedFeatureKey) {
-                const highlightedSection = popup.querySelector(`.popup-section[data-feature-key="${highlightedFeatureKey}"]`);
-                if (highlightedSection) {
-                    highlightedSection.click();
-                    // Updated clearHighlight() function that accepts the map instance as a parameter.
-                    function clearHighlight(map) {
-                        if (map.getSource('highlight-airspace-source')) {
-                            map.getSource('highlight-airspace-source').setData({ type: 'FeatureCollection', features: [] });
-                        }
-                        highlightedFeatureKey = null;
-                        if (popupMarker) {
-                            popupMarker.remove();
-                            popupMarker = null;
-                        }
+                const newPopup = document.querySelector('.popup-menu');
+                if (newPopup) {
+                    const highlightedSection = newPopup.querySelector(`.popup-section[data-feature-key="${highlightedFeatureKey}"]`);
+                    if (highlightedSection) {
+                        highlightedSection.click(); // Trigger the click to reapply highlight
+                    } else {
+                        // If the highlighted feature is no longer present, clear the highlight
+                        clearHighlight(map);
                     }
                 }
             }
@@ -755,12 +759,10 @@
                   'moveend' (if you want to catch pans as well).
                 */
                 map.on('zoomend', function () {
-                    const popup = document.querySelector('.popup-menu');
-                    if (popup && lastPopupLngLat) {
+                    if (lastPopupLngLat) {
                         refreshAirspacePopup(map);
                     }
                 });
-
                 // Attach a listener to update popup max-height on window resize and orientation change
                 window.addEventListener('resize', function () {
                     const popup = document.querySelector('.popup-menu');
