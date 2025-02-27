@@ -136,6 +136,7 @@
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
+            pointer-events: none;
         }
         .altitude-line {
             position: absolute;
@@ -407,6 +408,10 @@
                         features: [feature]
                     });
                     highlightedFeatureKey = getFeatureKey(feature.properties);
+                    // Scroll the highlighted section into view smoothly
+                    if (section) {
+                        section.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                    }
                 }
             }
 
