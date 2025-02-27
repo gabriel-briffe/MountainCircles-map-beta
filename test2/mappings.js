@@ -74,3 +74,13 @@ export const COLOR_MAPPING = {
 //           ["all", ["in", ["get", "type"], ["literal", ["TMZ", "Para/voltige"]]]], "rgb(128, 0, 128)",
 //           // Default color if no condition matches
 //           "rgb(0, 0, 0)"
+
+export function getColor(props) {
+    if (props.type === "gliding") {
+        return COLOR_MAPPING["gliding"];
+    } else if (props.icaoClass === "Other") {
+        return COLOR_MAPPING[props.type];
+    } else {
+        return COLOR_MAPPING[props.icaoClass];
+    }
+}
