@@ -41,8 +41,8 @@ const REFERENCE_DATUM_MAPPING = {
 };
 
 const FT_TO_M = 0.3048;
-// const BASE_PATH = '.';
-const BASE_PATH = '/MountainCircles-map-beta/test2';
+const BASE_PATH = '.';
+// const BASE_PATH = '/MountainCircles-map-beta/test2';
 
 // <--------------------helper functions-------------------->
 
@@ -160,6 +160,8 @@ function processGeoJSON(data) {
         SIV: { type: "FeatureCollection", features: [] },
         FIR: { type: "FeatureCollection", features: [] },
         gliding: { type: "FeatureCollection", features: [] },
+        ZSM: { type: "FeatureCollection", features: [] },
+        PROHIBITED: { type: "FeatureCollection", features: [] },
         other: { type: "FeatureCollection", features: [] }
     };
 
@@ -195,9 +197,21 @@ function processGeoJSON(data) {
             dispatched = true;
         }
 
-        // Dispatch to "FIR": features with type === 10.
+        // Dispatch to "FIR": features with type === "FIR".
         if (!dispatched && type === "FIR") {
             parts.FIR.features.push(feature);
+            dispatched = true;
+        }
+
+        // Dispatch to "ZSM": features with type === "ZSM".
+        if (!dispatched && type === "ZSM") {
+            parts.ZSM.features.push(feature);
+            dispatched = true;
+        }
+
+        // Dispatch to "PROHIBITED": features with type === "Prohibited".
+        if (!dispatched && type === "Prohibited") {
+            parts.PROHIBITED.features.push(feature);
             dispatched = true;
         }
 
@@ -298,9 +312,11 @@ self.addEventListener('fetch', event => {
                 const partKey = url.pathname.endsWith('parks.geojson') ? 'parks' :
                     url.pathname.endsWith('SIV.geojson') ? 'SIV' :
                         url.pathname.endsWith('FIR.geojson') ? 'FIR' :
-                            url.pathname.endsWith('gliding.geojson') ? 'gliding' :
-                                url.pathname.endsWith('other.geojson') ? 'other' :
-                                    null;
+                            url.pathname.endsWith('ZSM.geojson') ? 'ZSM' :
+                                url.pathname.endsWith('gliding.geojson') ? 'gliding' :
+                                    url.pathname.endsWith('PROHIBITED.geojson') ? 'PROHIBITED' :
+                                        url.pathname.endsWith('other.geojson') ? 'other' :
+                                            null;
                 console.log("Selected part key:", partKey);
 
                 if (!processedParts[partKey]) {

@@ -32,6 +32,14 @@ const style = {
     "other": {
       type: "geojson",
       data: `${BASE_PATH}/data/other.geojson`
+    },
+    "ZSM": {
+      type: "geojson",
+      data: `${BASE_PATH}/data/ZSM.geojson`
+    },
+    "PROHIBITED": {
+      type: "geojson",
+      data: `${BASE_PATH}/data/PROHIBITED.geojson`
     }
   },
   layers: [
@@ -141,10 +149,8 @@ const style = {
           ["all", ["in", ["get", "icaoClass"], ["literal", ["C", "D"]]]], COLOR_MAPPING["D"],
           // if ICAO class is E, F, or G 
           ["all", ["in", ["get", "icaoClass"], ["literal", ["E", "F", "G"]]]], COLOR_MAPPING["E"],
-          // If the TYPE is Prohibited, Restricted, or Dangerous
-          ["all", ["in", ["get", "type"], ["literal", ["Prohibited", "Restricted", "Dangerous"]]]], COLOR_MAPPING["Prohibited"],
-          // if type is ZSM or RMZ, color is orange
-          ["all", ["in", ["get", "type"], ["literal", ["ZSM", "RMZ"]]]], COLOR_MAPPING["ZSM"],
+          // If the TYPE is Restricted or Dangerous
+          ["all", ["in", ["get", "type"], ["literal", ["Restricted", "Dangerous"]]]], COLOR_MAPPING["Prohibited"],
           // if type is TMZ or Para/voltige, color is purple
           ["all", ["in", ["get", "type"], ["literal", ["TMZ", "Para/voltige"]]]], COLOR_MAPPING["TMZ"],
           // Default color if no condition matches
@@ -155,8 +161,7 @@ const style = {
           ["all", ["in", ["get", "icaoClass"], ["literal", ["A", "B"]]]], 4,
           ["all", ["in", ["get", "icaoClass"], ["literal", ["C", "D"]]]], 2,
           ["all", ["in", ["get", "icaoClass"], ["literal", ["E", "F", "G"]]]], 1,
-          // if type is Prohibited, Restricted, or Dangerous, use line width 2
-          ["all", ["in", ["get", "type"], ["literal", [3, 1, 2]]]], 2,
+          ["all", ["in", ["get", "type"], ["literal", ["Restricted", "Dangerous"]]]], 1,
           1
         ]
       }
@@ -169,31 +174,67 @@ const style = {
         "fill-color": [
           "case",
           // prohibited
-          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], COLOR_MAPPING["Prohibited"],
-          // Para/voltige purple
+          // ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], COLOR_MAPPING["Prohibited"],
+          // // Para/voltige purple
           ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], COLOR_MAPPING["TMZ"],
-          // zsm
-          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], COLOR_MAPPING["ZSM"],
-          // rmz
-          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], COLOR_MAPPING["RMZ"],
+          // // zsm
+          // ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], COLOR_MAPPING["ZSM"],
           COLOR_MAPPING["other"]
         ],
         "fill-opacity": [
           "case",
-          // prohibited
-          ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], 0.2,
+          // // prohibited
+          // ["all", ["in", ["get", "type"], ["literal", ["Prohibited"]]]], 0.2,
           // Para/voltige
           ["all", ["in", ["get", "type"], ["literal", ["Para/voltige"]]]], 0.2,
-          // zsm
-          ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], 0.5,
-          // rmz
-          ["all", ["in", ["get", "type"], ["literal", ["RMZ"]]]], 0.2,
+          // // zsm
+          // ["all", ["in", ["get", "type"], ["literal", ["ZSM"]]]], 0.5,
           0
         ]
       }
     },
-    
-
+    {
+      id: "ZSM-outline",
+      type: "line",
+      source: "ZSM",
+      layout: {
+        "visibility": "visible"
+      },
+      paint: {
+        "line-color": COLOR_MAPPING["ZSM"],
+        "line-width": 2
+      }
+    },
+    {
+      id: "ZSM-fill",
+      type: "fill",
+      source: "ZSM",
+      paint: {
+        "fill-color": COLOR_MAPPING["ZSM"],
+        "fill-opacity": 0.5
+      }
+    },
+    {
+      id: "PROHIBITED-outline",
+      type: "line",
+      source: "PROHIBITED",
+      layout: {
+        "visibility": "visible"
+      },
+      paint: {
+        "line-color": COLOR_MAPPING["Prohibited"],
+        "line-width": 2
+      }
+    },
+    {
+      id: "PROHIBITED-fill",
+      type: "fill",
+      source: "PROHIBITED",
+      paint: {
+        "fill-color": COLOR_MAPPING["Prohibited"],
+        "fill-opacity": 0.2
+      }
+    }
   ]
 };
 

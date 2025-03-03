@@ -195,6 +195,8 @@
             return features.filter(function(feature) {
                 const props = feature.properties;
                 const layerId = feature.layer && feature.layer.id ? feature.layer.id : '';
+                if (layerId.includes('PROHIBITED') && !document.getElementById('toggleProhibited').checked) return false;
+                if (layerId.includes('ZSM') && !document.getElementById('toggleZSM').checked) return false;
                 if (layerId.includes("SIV") && !document.getElementById("toggleSIV").checked) return false;
                 if (layerId.includes("FIR") && !document.getElementById("toggleFIR").checked) return false;
                 if (layerId.includes("gliding") && props.customProperty === "LTA" && !document.getElementById("toggleLTA").checked) return false;
@@ -220,7 +222,7 @@
 
         // Utility function to generate a unique key for a feature.
         function getFeatureKey(props) {
-            return props._id;
+            return props.name;
         }
 
         // Helper function which creates a popup section for a feature.
@@ -549,39 +551,43 @@
             }
         }
         function refreshAirspacePopup(map) {
+            // console.log("refreshAirspacePopup");
+            // console.log("highlightedFeatureKey before idle:", highlightedFeatureKey);
             if (!lastPopupLngLat) return; // No popup to refresh if no location is stored
-
-            // Re-query features at the last clicked point
-            const currentPoint = map.project(lastPopupLngLat);
-            let refreshedFeatures = map.queryRenderedFeatures(currentPoint, {
-                layers: ["SIV-fill", "gliding-fill", "parks-fill", "FIR-fill", "other-fill"]
-            });
-
-            // Apply the same filtering as in the click handler
-            refreshedFeatures = filterMapFeatures(refreshedFeatures);
-
-            // Remove the existing popup
-            const existingPopup = document.querySelector('.popup-menu');
-            if (existingPopup) {
-                existingPopup.remove();
-            }
-
-            // Recreate the popup with the refreshed features
-            createAirspacePopup({ lngLat: lastPopupLngLat }, refreshedFeatures, map);
-
-            // Reapply the highlight if there was a highlighted feature
-            if (highlightedFeatureKey) {
-                const newPopup = document.querySelector('.popup-menu');
-                if (newPopup) {
-                    const highlightedSection = newPopup.querySelector(`.popup-section[data-feature-key="${highlightedFeatureKey}"]`);
-                    if (highlightedSection) {
-                        highlightedSection.click(); // Trigger the click to reapply highlight
-                    } else {
-                        // If the highlighted feature is no longer present, clear the highlight
-                        clearHighlight(map);
+            
+            // Wait for the map to become idle to ensure layer visibility changes have taken effect
+            map.once('idle', () => {
+                // console.log("idle");
+                // console.log("highlightedFeatureKey:", highlightedFeatureKey);
+                const currentPoint = map.project(lastPopupLngLat);
+                let refreshedFeatures = map.queryRenderedFeatures(currentPoint, {
+                    layers: ["SIV-fill", "gliding-fill", "parks-fill", "FIR-fill", "other-fill", "ZSM-fill", "PROHIBITED-fill"]
+                });
+                refreshedFeatures = filterMapFeatures(refreshedFeatures);
+                const existingPopup = document.querySelector('.popup-menu');
+                if (existingPopup) {
+                    existingPopup.remove();
+                }
+                
+                // Recreate the popup with the refreshed features
+                createAirspacePopup({ lngLat: lastPopupLngLat }, refreshedFeatures, map);
+                
+                // Reapply the highlight if there was a highlighted feature
+                if (highlightedFeatureKey) {
+                    // console.log("highlightedFeatureKey:", highlightedFeatureKey);
+                    const newPopup = document.querySelector('.popup-menu');
+                    if (newPopup) {
+                        // console.log("newPopup:", newPopup);
+                        const highlightedSection = newPopup.querySelector(`.popup-section[data-feature-key="${highlightedFeatureKey}"]`);
+                        if (highlightedSection) {
+                            // console.log("Reapplying highlight");
+                            highlightedSection.click(); // Trigger the click to reapply highlight
+                        } else {
+                            clearHighlight(map);
+                        }
                     }
                 }
-            }
+            });
         }
 
         function clearHighlight(map) {
@@ -741,9 +747,6 @@
                 // Handler for filtering the other-fill and other-outline layers; add popup refresh.
                 function updateOtherLayerFilter() {
                     let filter = ["all"];
-                    if (!document.getElementById("toggleProhibited").checked) {
-                        filter.push(["!=", ["get", "type"], "Prohibited"]);
-                    }
                     if (!document.getElementById("toggleRestricted").checked) {
                         filter.push(["!=", ["get", "type"], "Restricted"]);
                     }
@@ -760,9 +763,6 @@
                         filter.push(["!=", ["get", "icaoClass"], "E"]);
                         filter.push(["!=", ["get", "icaoClass"], "F"]);
                         filter.push(["!=", ["get", "icaoClass"], "G"]);
-                    }
-                    if (!document.getElementById("toggleZSM").checked) {
-                        filter.push(["!=", ["get", "type"], "ZSM"]);
                     }
                     if (!document.getElementById("toggleRMZ").checked) {
                         filter.push(["!=", ["get", "type"], "RMZ"]);
@@ -783,9 +783,6 @@
                         filter.push(["!=", ["get", "type"], "activité particulière"]);
                     }
                     const finalFilter = filter.length > 1 ? filter : null;
-                    // if (map.getLayer("other-fill")) {
-                    //     map.setFilter("other-fill", finalFilter);
-                    // }
                     if (map.getLayer("other-outline")) {
                         map.setFilter("other-outline", finalFilter);
                     }
@@ -795,12 +792,10 @@
 
                 // Attach change event listeners to the other layer checkboxes.
                 [
-                    document.getElementById("toggleProhibited"),
                     document.getElementById("toggleRestricted"),
                     document.getElementById("toggleDangerous"),
                     document.getElementById("toggleABCD"),
                     document.getElementById("toggleEFG"),
-                    document.getElementById("toggleZSM"),
                     document.getElementById("toggleRMZ"),
                     document.getElementById("toggleTMZ"),
                     document.getElementById("toggleParaVoltige"),
@@ -809,6 +804,27 @@
                     document.getElementById("toogleActPart")
                 ].forEach(checkbox => {
                     checkbox.addEventListener("change", updateOtherLayerFilter);
+                });
+
+                // Add separate event listeners for toggleZSM and toggleProhibited to directly toggle their layer visibility
+                document.getElementById("toggleZSM").addEventListener("change", function() {
+                    if (map.getLayer("ZSM-outline")) {
+                        const visibility = this.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("ZSM-outline", "visibility", visibility);
+                        map.setLayoutProperty("ZSM-fill", "visibility", visibility);
+                        console.log("ZSM layer visibility set to", visibility);
+                    }
+                    triggerPopupRefresh(map);
+                });
+
+                document.getElementById("toggleProhibited").addEventListener("change", function() {
+                    if (map.getLayer("PROHIBITED-outline")) {
+                        const visibility = this.checked ? 'visible' : 'none';
+                        map.setLayoutProperty("PROHIBITED-outline", "visibility", visibility);
+                        map.setLayoutProperty("PROHIBITED-fill", "visibility", visibility);
+                        console.log("Prohibited layer visibility set to", visibility);
+                    }
+                    triggerPopupRefresh(map);
                 });
 
                 // -----------------------------
@@ -838,7 +854,7 @@
                     // Query features and apply filtering.
                     let currentPoint = map.project(lastPopupLngLat);
                     let features = map.queryRenderedFeatures(currentPoint, {
-                        layers: ["SIV-fill", "gliding-fill", "parks-fill", "FIR-fill", "other-fill"]
+                        layers: ["SIV-fill", "gliding-fill", "parks-fill", "FIR-fill", "other-fill", "ZSM-fill", "PROHIBITED-fill"]
                     });
                     features = filterMapFeatures(features);
 
@@ -853,6 +869,7 @@
                   'moveend' (if you want to catch pans as well).
                 */
                 map.on('zoomend', function () {
+                    console.log("zoomend");
                     if (lastPopupLngLat) {
                         refreshAirspacePopup(map);
                     }
