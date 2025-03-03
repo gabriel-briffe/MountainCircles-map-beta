@@ -165,6 +165,9 @@
         <label><input type="checkbox" id="toggleRMZ" checked> RMZ</label><br>
         <label><input type="checkbox" id="toggleTMZ" checked> TMZ</label><br>
         <label><input type="checkbox" id="toggleParaVoltige" checked> Para/voltige</label><br>
+        <label><input type="checkbox" id="toogleAéromodélisme" checked> aéromodélisme</label><br>
+        <label><input type="checkbox" id="toogleTreuil" checked> treuil</label><br>
+        <label><input type="checkbox" id="toogleActPart" checked> activité particulière</label><br>
     </div>
 
     <div id="map"></div>
@@ -197,6 +200,9 @@
                 if (layerId.includes("gliding") && props.customProperty === "LTA" && !document.getElementById("toggleLTA").checked) return false;
                 if (props.type === "Dangerous" && !document.getElementById("toggleDangerous").checked) return false;
                 if (["E", "F", "G"].includes(props.icaoClass) && !document.getElementById("toggleEFG").checked) return false;
+                if (props.type === "aéromodélisme" && !document.getElementById("toogleAéromodélisme").checked) return false;
+                if (props.type === "treuil" && !document.getElementById("toogleTreuil").checked) return false;
+                if (props.type === "activité particulière" && !document.getElementById("toogleActPart").checked) return false;
                 return true;
             });
         }
@@ -767,6 +773,15 @@
                     if (!document.getElementById("toggleParaVoltige").checked) {
                         filter.push(["!=", ["get", "type"], "Para/voltige"]);
                     }
+                    if (!document.getElementById("toogleAéromodélisme").checked) {
+                        filter.push(["!=", ["get", "type"], "aéromodélisme"]);
+                    }
+                    if (!document.getElementById("toogleTreuil").checked) {
+                        filter.push(["!=", ["get", "type"], "treuil"]);
+                    }
+                    if (!document.getElementById("toogleActPart").checked) {
+                        filter.push(["!=", ["get", "type"], "activité particulière"]);
+                    }
                     const finalFilter = filter.length > 1 ? filter : null;
                     // if (map.getLayer("other-fill")) {
                     //     map.setFilter("other-fill", finalFilter);
@@ -788,7 +803,10 @@
                     document.getElementById("toggleZSM"),
                     document.getElementById("toggleRMZ"),
                     document.getElementById("toggleTMZ"),
-                    document.getElementById("toggleParaVoltige")
+                    document.getElementById("toggleParaVoltige"),
+                    document.getElementById("toogleAéromodélisme"),
+                    document.getElementById("toogleTreuil"),
+                    document.getElementById("toogleActPart")
                 ].forEach(checkbox => {
                     checkbox.addEventListener("change", updateOtherLayerFilter);
                 });

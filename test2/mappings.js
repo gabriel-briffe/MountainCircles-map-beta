@@ -23,7 +23,10 @@ export const TYPE_MAPPING = {
     26: "CTA",
     28: "Para/voltige",
     29: "ZSM",
-    33: "SIV"
+    33: "SIV",
+    34: "aéromodélisme",
+    35: "treuil",
+    36: "activité particulière"
 };
 
 export const UNIT_MAPPING = { 
