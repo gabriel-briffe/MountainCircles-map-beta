@@ -2,7 +2,7 @@
     "sources": {
       "main-geojson-source": {
         "type": "geojson",
-        "data": "https://raw.githubusercontent.com/gabriel-briffe/MountainCircles-map-beta/main/seeyou/testseeyou.geojson"
+        "data": "https://raw.githubusercontent.com/gabriel-briffe/MountainCircles---map/main/alps/25-100-250-4200/aa_alps_25-100-250.geojson"
       }
     },
     "layers": [
