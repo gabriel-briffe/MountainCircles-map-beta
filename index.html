@@ -1701,18 +1701,14 @@
         // Update your service worker registration
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register(`${BASE_PATH}/sw.js`, {
-                scope: `${BASE_PATH}/`  // Ensure trailing slash
+                scope: `${BASE_PATH}/`  // Add trailing slash
             })
             .then(async registration => {
                 console.log('Service Worker registered with scope:', registration.scope);
                 
-                // Force update.
+                // Force update
                 if (registration.active) {
                     registration.update();
-                    // When running standalone on mobile, force offline mode.
-                    if (isRunningStandalone() && isMobileDevice()) {
-                        registration.active.postMessage({ type: 'forceOffline', flag: true });
-                    }
                 }
             })
             .catch(error => {
@@ -1746,45 +1742,56 @@
             const config = configParts[1];
             const configPrefix = config.split('-').slice(0, 3).join('-');
             
-            // Show progress UI.
+            // Show progress UI
             document.getElementById('cacheProgress').style.display = 'block';
             const progressBar = document.getElementById('progressBar');
             const cacheCount = document.getElementById('cacheCount');
             const totalFiles = document.getElementById('totalFiles');
             
             try {
-                // Build the URL for the main GeoJSON file.
+                // First, fetch the main GeoJSON to get the point features
                 const mainGeojsonUrl = `./${currentConfig}/aa_${policy}_${configPrefix}.geojson`;
+                const sectorsGeojsonUrl = `./${currentConfig}/aa_${policy}_${configPrefix}_sectors1.geojson`;
                 
-                // Create a Request with the custom header to allow live network access.
-                const mainRequest = new Request(mainGeojsonUrl, {
-                    headers: new Headers({ 'x-allow-network': 'true' })
-                });
-                const response = await fetch(mainRequest);
+                const response = await fetch(mainGeojsonUrl);
                 const data = await response.json();
                 
-                // Continue with your normal processing...
-                const pointFeatures = data.features.filter(f =>
-                    f.geometry.type === 'Point' && f.properties.filename
-                );
+                // Filter for point features that have a filename property
+                const pointFeatures = data.features.filter(f => 
+                    f.geometry.type === 'Point' && f.properties.filename);
+                
+                // Create list of files to cache, including the main GeoJSON files
                 const files = [
                     `${currentConfig}/aa_${policy}_${configPrefix}.geojson`,
                     `${currentConfig}/aa_${policy}_${configPrefix}_sectors1.geojson`,
                     ...pointFeatures.map(f => `${currentConfig}/${f.properties.filename}`)
                 ];
+                
+                // Update total files count (including main files)
                 const total = files.length;
                 totalFiles.textContent = total;
                 
+                // Create message handler before sending message
                 const messageHandler = (event) => {
                     if (event.data.type === 'cacheStart') {
-                        // Optionally handle start message.
-                    } else if (event.data.type === 'cacheProgress') {
+                        // alert(event.data.message);
+                    }
+                    else if (event.data.type === 'cacheProgress') {
+                        // Update progress for every file
                         cacheCount.textContent = event.data.completed;
                         const percentage = (event.data.completed / event.data.total) * 100;
                         progressBar.style.width = `${percentage}%`;
-                    } else if (event.data.type === 'cacheError') {
-                        // Optionally handle errors.
-                    } else if (event.data.type === 'cacheComplete') {
+                        
+                        // Show alert for the current operation
+                        if (event.data.message) {
+                            // alert(event.data.message);
+                        }
+                    }
+                    else if (event.data.type === 'cacheError') {
+                        // alert(event.data.message);
+                    }
+                    else if (event.data.type === 'cacheComplete') {
+                        // alert('Cache complete - updating button styles');
                         updateConfigButtonStyles();
                         navigator.serviceWorker.removeEventListener('message', messageHandler);
                         document.getElementById('cacheProgress').style.display = 'none';
@@ -1792,15 +1799,21 @@
                     }
                 };
                 
+                // Add the message listener
                 navigator.serviceWorker.addEventListener('message', messageHandler);
                 
+                // Send message to service worker
                 const registration = await navigator.serviceWorker.ready;
+                
+                // alert('Sending cache request to Service Worker');
                 registration.active.postMessage({
                     type: 'cacheFiles',
                     files: files,
                     config: currentConfig
                 });
+                
             } catch (error) {
+                // alert(`Error: ${error.message}`);
                 console.error('Error caching configuration:', error);
                 document.getElementById('cacheProgress').style.display = 'none';
             }
@@ -1960,11 +1973,6 @@
           });
         }
 
-        navigator.serviceWorker.addEventListener('message', event => {
-            if (event.data.type === 'debug') {
-                alert(event.data.message);
-            }
-        });
 
     </script>
 </body>

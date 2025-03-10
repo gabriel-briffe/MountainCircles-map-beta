@@ -6,7 +6,6 @@ const GEOJSON_CACHE_NAME = 'mountaincircles-geojson-v1';
 const DYNAMIC_CACHE_NAME = 'mountaincircles-dynamic-v1';
 
 const BASE_PATH = '/MountainCircles---map';
-let forceOfflineFlag = false;
 
 // Global counter for the number of network fetches served (i.e., when there's no cached response)
 let networkFetchCount = 0;
@@ -61,23 +60,6 @@ function normalizeUrl(url) {
 
 // Fetch event - serve from network first for index.html and sw.js, cache first for everything else
 self.addEventListener('fetch', event => {
-  // Read custom header to allow live network requests
-  let allowNetwork = false;
-  try {
-    allowNetwork = event.request.headers.get('x-allow-network') === 'true';
-  } catch (e) {
-    // If error reading header, leave allowNetwork as false
-  }
-
-  // If forced offline mode is active and the request isn't allowed, respond from cache.
-  if (forceOfflineFlag && !allowNetwork) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(response => response || new Response('Offline mode: resource not available', { status: 404 }))
-    );
-    return;
-  }
-
   const url = new URL(event.request.url);
   
   // Skip non-GET requests and requests to other domains that aren't glyph requests
@@ -123,29 +105,28 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Otherwise, perform a network fetch with simulated delay for testing.
-  event.respondWith((async () => {
-    const DEBUG_SLOW_NETWORK = true; // Set to true to simulate a slow network.
-    if (DEBUG_SLOW_NETWORK) {
-      // Send a debug message to all client windows.
-      const clientList = await self.clients.matchAll({ type: 'window' });
-      for (const client of clientList) {
-        client.postMessage({
-          type: 'debug',
-          message: 'Fetching network data for ' + event.request.url
-        });
-      }
-      // Simulate slow network (e.g., delay 5 seconds)
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-    try {
-      const response = await fetch(event.request);
-      return response;
-    } catch (error) {
-      console.error('Network fetch failed:', error);
-      return caches.match(event.request);
-    }
-  })());
+  // Cache-first strategy for all other requests
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        if (response) {
+          return response;
+        }
+        return fetch(event.request)
+          .then(response => {
+            if (response.ok) {
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME)
+                .then(cache => cache.put(event.request, responseToCache));
+            }
+            return response;
+          })
+          .catch(error => {
+            console.error('Fetch failed:', error);
+            return new Response('Network error', { status: 503 });
+          });
+      })
+  );
 });
 
 // Handle tile requests
@@ -257,12 +238,6 @@ async function handleGlyphRequest(request) {
 
 // Handle messages from the client
 self.addEventListener('message', async (event) => {
-  if (event.data.type === 'forceOffline') {
-    forceOfflineFlag = event.data.flag;
-    console.log('Force offline mode set to', forceOfflineFlag);
-    return;
-  }
-
   if (event.data.type === 'cacheFiles') {
     const cache = await caches.open(DYNAMIC_CACHE_NAME);
     let completed = 0;
