@@ -68,25 +68,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first strategy for index.html and sw.js
-  if (url.pathname.endsWith('index.html') || url.pathname.endsWith('/') || url.pathname.endsWith('sw.js')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          // Clone the response before caching it
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then(cache => cache.put(event.request, responseToCache));
-          return response;
-        })
-        .catch(() => {
-          // If network fails, try the cache
-          return caches.match(event.request);
-        })
-    );
-    return;
-  }
-
   // Handle tile requests
   if (url.pathname.includes('/tiles/')) {
     event.respondWith(handleTileRequest(event.request));
