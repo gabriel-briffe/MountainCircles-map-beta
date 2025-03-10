@@ -61,16 +61,15 @@ function normalizeUrl(url) {
 
 // Fetch event - serve from network first for index.html and sw.js, cache first for everything else
 self.addEventListener('fetch', event => {
-  // Read the custom header that permits live network access.
+  // Read custom header to allow live network requests
   let allowNetwork = false;
   try {
     allowNetwork = event.request.headers.get('x-allow-network') === 'true';
   } catch (e) {
-    // In case of an error reading the header, default to false.
+    // If error reading header, leave allowNetwork as false
   }
 
-  // If forced offline mode is enabled and the request is not marked to allow network access,
-  // serve the request solely from cache (or return a fallback 404 response).
+  // If forced offline mode is active and the request isn't allowed, respond from cache.
   if (forceOfflineFlag && !allowNetwork) {
     event.respondWith(
       caches.match(event.request)
@@ -124,28 +123,29 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first strategy for all other requests
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request)
-          .then(response => {
-            if (response.ok) {
-              const responseToCache = response.clone();
-              caches.open(CACHE_NAME)
-                .then(cache => cache.put(event.request, responseToCache));
-            }
-            return response;
-          })
-          .catch(error => {
-            console.error('Fetch failed:', error);
-            return new Response('Network error', { status: 503 });
-          });
-      })
-  );
+  // Otherwise, perform a network fetch with simulated delay for testing.
+  event.respondWith((async () => {
+    const DEBUG_SLOW_NETWORK = true; // Set to true to simulate a slow network.
+    if (DEBUG_SLOW_NETWORK) {
+      // Send a debug message to all client windows.
+      const clientList = await self.clients.matchAll({ type: 'window' });
+      for (const client of clientList) {
+        client.postMessage({
+          type: 'debug',
+          message: 'Fetching network data for ' + event.request.url
+        });
+      }
+      // Simulate slow network (e.g., delay 5 seconds)
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+    try {
+      const response = await fetch(event.request);
+      return response;
+    } catch (error) {
+      console.error('Network fetch failed:', error);
+      return caches.match(event.request);
+    }
+  })());
 });
 
 // Handle tile requests
@@ -260,7 +260,7 @@ self.addEventListener('message', async (event) => {
   if (event.data.type === 'forceOffline') {
     forceOfflineFlag = event.data.flag;
     console.log('Force offline mode set to', forceOfflineFlag);
-    return; // Exit early for this message.
+    return;
   }
 
   if (event.data.type === 'cacheFiles') {

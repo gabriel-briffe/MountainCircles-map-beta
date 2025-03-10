@@ -1709,7 +1709,7 @@
                 // Force update.
                 if (registration.active) {
                     registration.update();
-                    // When running standalone on mobile, send a message to force offline mode.
+                    // When running standalone on mobile, force offline mode.
                     if (isRunningStandalone() && isMobileDevice()) {
                         registration.active.postMessage({ type: 'forceOffline', flag: true });
                     }
@@ -1745,7 +1745,7 @@
             const policy = configParts[0];
             const config = configParts[1];
             const configPrefix = config.split('-').slice(0, 3).join('-');
-
+            
             // Show progress UI.
             document.getElementById('cacheProgress').style.display = 'block';
             const progressBar = document.getElementById('progressBar');
@@ -1756,39 +1756,34 @@
                 // Build the URL for the main GeoJSON file.
                 const mainGeojsonUrl = `./${currentConfig}/aa_${policy}_${configPrefix}.geojson`;
                 
-                // Create a Request with the custom header to bypass forced offline mode.
+                // Create a Request with the custom header to allow live network access.
                 const mainRequest = new Request(mainGeojsonUrl, {
                     headers: new Headers({ 'x-allow-network': 'true' })
                 });
                 const response = await fetch(mainRequest);
                 const data = await response.json();
                 
-                // Filter for point features with a filename property.
+                // Continue with your normal processing...
                 const pointFeatures = data.features.filter(f =>
                     f.geometry.type === 'Point' && f.properties.filename
                 );
-                
-                // Create list of files to cache (including main GeoJSON files).
                 const files = [
                     `${currentConfig}/aa_${policy}_${configPrefix}.geojson`,
                     `${currentConfig}/aa_${policy}_${configPrefix}_sectors1.geojson`,
                     ...pointFeatures.map(f => `${currentConfig}/${f.properties.filename}`)
                 ];
-                
-                // Update total files count.
                 const total = files.length;
                 totalFiles.textContent = total;
                 
-                // Create message handler for progress updates.
                 const messageHandler = (event) => {
                     if (event.data.type === 'cacheStart') {
-                        // Optionally handle cache start messages.
+                        // Optionally handle start message.
                     } else if (event.data.type === 'cacheProgress') {
                         cacheCount.textContent = event.data.completed;
                         const percentage = (event.data.completed / event.data.total) * 100;
                         progressBar.style.width = `${percentage}%`;
                     } else if (event.data.type === 'cacheError') {
-                        // Optionally handle cache error messages.
+                        // Optionally handle errors.
                     } else if (event.data.type === 'cacheComplete') {
                         updateConfigButtonStyles();
                         navigator.serviceWorker.removeEventListener('message', messageHandler);
@@ -1797,17 +1792,14 @@
                     }
                 };
                 
-                // Add the message listener.
                 navigator.serviceWorker.addEventListener('message', messageHandler);
                 
-                // Send message to service worker to start caching the files.
                 const registration = await navigator.serviceWorker.ready;
                 registration.active.postMessage({
                     type: 'cacheFiles',
                     files: files,
                     config: currentConfig
                 });
-                
             } catch (error) {
                 console.error('Error caching configuration:', error);
                 document.getElementById('cacheProgress').style.display = 'none';
@@ -1968,6 +1960,11 @@
           });
         }
 
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data.type === 'debug') {
+                alert(event.data.message);
+            }
+        });
 
     </script>
 </body>
