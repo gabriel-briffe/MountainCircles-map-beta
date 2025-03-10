@@ -10,6 +10,9 @@ const BASE_PATH = '/MountainCircles-map-beta';
 // Global counter for the number of network fetches served (i.e., when there's no cached response)
 let networkFetchCount = 0;
 
+// Add a global flag to control forced offline mode
+let forceOfflineFlag = false;
+
 // Resources to cache immediately on install
 const INITIAL_CACHE_URLS = [
   `${BASE_PATH}/`,
@@ -60,6 +63,20 @@ function normalizeUrl(url) {
 
 // Fetch event - serve from network first for index.html and sw.js, cache first for everything else
 self.addEventListener('fetch', event => {
+  // Check if this request has a header that permits network access.
+  const allowNetwork = event.request.headers.get('x-allow-network');
+  
+  // If forced offline mode is enabled and the request does not allow network,
+  // always respond from cache.
+  if (forceOfflineFlag && !allowNetwork) {
+    event.respondWith(
+      caches.match(event.request).then(response =>
+        response || new Response('Offline mode: resource not available', { status: 404 })
+      )
+    );
+    return;
+  }
+  
   const url = new URL(event.request.url);
   
   // Skip non-GET requests and requests to other domains that aren't glyph requests
@@ -376,5 +393,11 @@ self.addEventListener('message', async (event) => {
       message: `Successfully cached ${completed} out of ${total} airspace tiles`
     });
     return;
+  }
+
+  // Listen for a command to force offline mode.
+  if (event.data.type === 'forceOffline') {
+      forceOfflineFlag = event.data.flag;  // true or false
+      console.log('Force offline mode set to', forceOfflineFlag);
   }
 }); 
