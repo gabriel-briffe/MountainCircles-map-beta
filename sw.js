@@ -5,13 +5,11 @@ const TILE_CACHE_NAME = 'mountaincircles-tiles-v1';
 const GEOJSON_CACHE_NAME = 'mountaincircles-geojson-v1';
 const DYNAMIC_CACHE_NAME = 'mountaincircles-dynamic-v1';
 
-const BASE_PATH = '/MountainCircles-map-beta';
+const BASE_PATH = '/MountainCircles---map';
+let forceOfflineFlag = false;
 
 // Global counter for the number of network fetches served (i.e., when there's no cached response)
 let networkFetchCount = 0;
-
-// Add a global flag to control forced offline mode
-let forceOfflineFlag = false;
 
 // Resources to cache immediately on install
 const INITIAL_CACHE_URLS = [
@@ -63,20 +61,24 @@ function normalizeUrl(url) {
 
 // Fetch event - serve from network first for index.html and sw.js, cache first for everything else
 self.addEventListener('fetch', event => {
-  // Check if this request has a header that permits network access.
-  const allowNetwork = event.request.headers.get('x-allow-network');
-  
-  // If forced offline mode is enabled and the request does not allow network,
-  // always respond from cache.
+  // Read the custom header that permits live network access.
+  let allowNetwork = false;
+  try {
+    allowNetwork = event.request.headers.get('x-allow-network') === 'true';
+  } catch (e) {
+    // In case of an error reading the header, default to false.
+  }
+
+  // If forced offline mode is enabled and the request is not marked to allow network access,
+  // serve the request solely from cache (or return a fallback 404 response).
   if (forceOfflineFlag && !allowNetwork) {
     event.respondWith(
-      caches.match(event.request).then(response =>
-        response || new Response('Offline mode: resource not available', { status: 404 })
-      )
+      caches.match(event.request)
+        .then(response => response || new Response('Offline mode: resource not available', { status: 404 }))
     );
     return;
   }
-  
+
   const url = new URL(event.request.url);
   
   // Skip non-GET requests and requests to other domains that aren't glyph requests
@@ -255,6 +257,12 @@ async function handleGlyphRequest(request) {
 
 // Handle messages from the client
 self.addEventListener('message', async (event) => {
+  if (event.data.type === 'forceOffline') {
+    forceOfflineFlag = event.data.flag;
+    console.log('Force offline mode set to', forceOfflineFlag);
+    return; // Exit early for this message.
+  }
+
   if (event.data.type === 'cacheFiles') {
     const cache = await caches.open(DYNAMIC_CACHE_NAME);
     let completed = 0;
@@ -340,64 +348,5 @@ self.addEventListener('message', async (event) => {
             }
         }));
     }
-  }
-
-  // New message type for caching airspace tiles
-  if (event.data.type === 'cacheAirspaceTiles') {
-    const { apikey, tiles } = event.data;
-    const cache = await caches.open(TILE_CACHE_NAME);
-    let completed = 0;
-    const total = tiles.length;
-    
-    // Inform the client of the start of caching
-    event.source.postMessage({
-      type: 'cacheStart',
-      message: `Starting to cache ${total} airspace tiles`
-    });
-    
-    // Process tiles in batches (for example, 50 at a time)
-    const BATCH_SIZE = 50;
-    for (let i = 0; i < tiles.length; i += BATCH_SIZE) {
-      const batch = tiles.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(async (tile) => {
-        const url = `https://${tile.s}.api.tiles.openaip.net/api/data/openaip/${tile.z}/${tile.x}/${tile.y}.png?apikey=${apikey}`;
-        try {
-          const response = await fetch(url);
-          if (response.ok) {
-            await cache.put(url, response.clone());
-          } else {
-            event.source.postMessage({
-              type: 'cacheError',
-              message: `Failed to fetch tile ${url}: ${response.status} ${response.statusText}`
-            });
-          }
-        } catch (error) {
-          event.source.postMessage({
-            type: 'cacheError',
-            message: `Error caching tile ${url}: ${error.message}`
-          });
-        }
-        completed++;
-        event.source.postMessage({
-          type: 'cacheProgress',
-          completed: completed,
-          total: total,
-          currentTile: tile
-        });
-      }));
-    }
-    
-    // Inform the client that caching is complete
-    event.source.postMessage({
-      type: 'cacheComplete',
-      message: `Successfully cached ${completed} out of ${total} airspace tiles`
-    });
-    return;
-  }
-
-  // Listen for a command to force offline mode.
-  if (event.data.type === 'forceOffline') {
-      forceOfflineFlag = event.data.flag;  // true or false
-      console.log('Force offline mode set to', forceOfflineFlag);
   }
 }); 

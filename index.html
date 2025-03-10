@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <base href="/MountainCircles-map-beta/">
+    <base href="/MountainCircles---map/">
     <title>MountainCircles Map - Beta</title>
     <!-- Using jsDelivr instead of unpkg to avoid potential network errors on Windows -->
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@latest/dist/maplibre-gl.js"></script>
@@ -593,9 +593,6 @@
                     </div>
                 </div>
             </div>
-            <!-- HTML elements for API key input and caching button (place this in your HTML) -->
-            <button id="cacheAirspaceBtn">Cache Airspace Region</button>
-            <input id="apikeyInput" placeholder="Enter your API key" type="text">
 
             <h3>Warning</h3>
             <p>This is a new experimental tool. Problems will arise that have not been encountered before in the gliding community.</p>
@@ -617,9 +614,8 @@
         <button id="cancelInstall" style="background: #666; border: none; color: white; padding: 8px 16px; border-radius: 4px;">Not Now</button>
     </div>
 
-
     <script>
-        const BASE_PATH = '/MountainCircles-map-beta';
+        const BASE_PATH = '/MountainCircles---map';
 
         const customStyle = {
             "version": 8,
@@ -1388,31 +1384,6 @@
                 document.getElementById('zoomInBtn').style.display = 'none';
                 document.getElementById('zoomOutBtn').style.display = 'none';
             } 
-
-            // Add the airspaces raster source using the working OpenAIP Tiles API endpoint
-            map.addSource('airspaces', {
-                type: 'raster',
-                tiles: [
-                    'https://{s}.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apikey=f873030a9e00340ffcf030130f4dc378'
-                ],
-                tileSize: 256,
-                subdomains: ['a', 'b', 'c'],
-                tms: true,
-                crossOrigin: 'anonymous'
-            });
-
-            // Add the airspaces raster layer
-            map.addLayer({
-                id: 'airspaces-layer',
-                type: 'raster',
-                source: 'airspaces',
-                layout: {
-                    visibility: 'visible'
-                },
-                paint: {
-                    'raster-opacity': 1  // Adjust the opacity as needed
-                }
-            });
         });
         
         // Helper function to check if running in standalone mode
@@ -1730,19 +1701,18 @@
         // Update your service worker registration
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register(`${BASE_PATH}/sw.js`, {
-                scope: `${BASE_PATH}/`  // Add trailing slash
+                scope: `${BASE_PATH}/`  // Ensure trailing slash
             })
             .then(async registration => {
                 console.log('Service Worker registered with scope:', registration.scope);
                 
-                // Force update
+                // Force update.
                 if (registration.active) {
                     registration.update();
-                }
-                
-                // For standalone mobile apps, tell the SW to use forced offline mode.
-                if (isRunningStandalone() && isMobileDevice()) {
-                    registration.active.postMessage({ type: 'forceOffline', flag: true });
+                    // When running standalone on mobile, send a message to force offline mode.
+                    if (isRunningStandalone() && isMobileDevice()) {
+                        registration.active.postMessage({ type: 'forceOffline', flag: true });
+                    }
                 }
             })
             .catch(error => {
@@ -1775,53 +1745,51 @@
             const policy = configParts[0];
             const config = configParts[1];
             const configPrefix = config.split('-').slice(0, 3).join('-');
-            
-            // Show progress UI
+
+            // Show progress UI.
             document.getElementById('cacheProgress').style.display = 'block';
             const progressBar = document.getElementById('progressBar');
             const cacheCount = document.getElementById('cacheCount');
             const totalFiles = document.getElementById('totalFiles');
             
             try {
-                // First, fetch the main GeoJSON to get the point features
+                // Build the URL for the main GeoJSON file.
                 const mainGeojsonUrl = `./${currentConfig}/aa_${policy}_${configPrefix}.geojson`;
+                
+                // Create a Request with the custom header to bypass forced offline mode.
                 const mainRequest = new Request(mainGeojsonUrl, {
                     headers: new Headers({ 'x-allow-network': 'true' })
                 });
                 const response = await fetch(mainRequest);
                 const data = await response.json();
                 
-                // Filter for point features that have a filename property
-                const pointFeatures = data.features.filter(f => 
+                // Filter for point features with a filename property.
+                const pointFeatures = data.features.filter(f =>
                     f.geometry.type === 'Point' && f.properties.filename
                 );
                 
-                // Create list of files to cache, including the main GeoJSON files
+                // Create list of files to cache (including main GeoJSON files).
                 const files = [
                     `${currentConfig}/aa_${policy}_${configPrefix}.geojson`,
                     `${currentConfig}/aa_${policy}_${configPrefix}_sectors1.geojson`,
                     ...pointFeatures.map(f => `${currentConfig}/${f.properties.filename}`)
                 ];
                 
-                // Update total files count (including main files)
+                // Update total files count.
                 const total = files.length;
                 totalFiles.textContent = total;
                 
-                // Create message handler before sending message
+                // Create message handler for progress updates.
                 const messageHandler = (event) => {
                     if (event.data.type === 'cacheStart') {
-                        // Optionally, process event.data.message
-                    }
-                    else if (event.data.type === 'cacheProgress') {
-                        // Update progress for every file
+                        // Optionally handle cache start messages.
+                    } else if (event.data.type === 'cacheProgress') {
                         cacheCount.textContent = event.data.completed;
                         const percentage = (event.data.completed / event.data.total) * 100;
                         progressBar.style.width = `${percentage}%`;
-                    }
-                    else if (event.data.type === 'cacheError') {
-                        // Optionally, process event.data.message
-                    }
-                    else if (event.data.type === 'cacheComplete') {
+                    } else if (event.data.type === 'cacheError') {
+                        // Optionally handle cache error messages.
+                    } else if (event.data.type === 'cacheComplete') {
                         updateConfigButtonStyles();
                         navigator.serviceWorker.removeEventListener('message', messageHandler);
                         document.getElementById('cacheProgress').style.display = 'none';
@@ -1829,10 +1797,10 @@
                     }
                 };
                 
-                // Add the message listener
+                // Add the message listener.
                 navigator.serviceWorker.addEventListener('message', messageHandler);
                 
-                // Send message to service worker to cache the files
+                // Send message to service worker to start caching the files.
                 const registration = await navigator.serviceWorker.ready;
                 registration.active.postMessage({
                     type: 'cacheFiles',
@@ -2000,70 +1968,7 @@
           });
         }
 
-        // Example: compute tiles for a region at a given zoom level.
-        function computeTileCoordinatesForRegion(bounds, zoom) {
-          // bounds should be in the form [ [minLng, minLat], [maxLng, maxLat] ]
-          // For demonstration, we'll use a simple approach.
-          function lngLatToTile(lng, lat, zoom) {
-            const n = Math.pow(2, zoom);
-            const x = Math.floor((lng + 180) / 360 * n);
-            const latRad = lat * Math.PI / 180;
-            const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
-            return { x, y };
-          }
-          
-          const nw = lngLatToTile(bounds[0][0], bounds[1][1], zoom);
-          const se = lngLatToTile(bounds[1][0], bounds[0][1], zoom);
-          
-          const tiles = [];
-          const subdomains = ['a', 'b', 'c'];
-          
-          for (let x = nw.x; x <= se.x; x++) {
-            for (let y = nw.y; y <= se.y; y++) {
-              const s = subdomains[Math.floor(Math.random() * subdomains.length)];
-              tiles.push({ x, y, z: zoom, s: s });
-            }
-          }
-          return tiles;
-        }
 
-        // When the user clicks the "Cache Airspace Region" button
-        document.getElementById('cacheAirspaceBtn').addEventListener('click', () => {
-          const apikey = document.getElementById('apikeyInput').value.trim();
-          if (!apikey) {
-            alert('Please enter your API key before caching.');
-            return;
-          }
-
-          // Define the region bounds and zoom level for caching.
-          // For example, use a selected or predefined region:
-          const regionBounds = [[4.9698169, 43.6088902], [13.696105, 47.5644488]]; // [ [minLng, minLat], [maxLng, maxLat] ]
-          const zoomLevel = 7; // Adjust zoom level as desired
-          const tiles = computeTileCoordinatesForRegion(regionBounds, zoomLevel);
-          
-          // Send a message to the service worker to cache these airspace tiles
-          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({
-              type: 'cacheAirspaceTiles',
-              apikey: apikey,
-              tiles: tiles
-            });
-          } else {
-            alert('Service worker not ready – please try again later.');
-          }
-        });
-
-        // Optionally, listen for messages from the service worker to show progress
-        navigator.serviceWorker.addEventListener('message', (event) => {
-          if (event.data.type === 'cacheProgress') {
-            console.log(`Cached ${event.data.completed} out of ${event.data.total} tiles; current tile:`, event.data.currentTile);
-          } else if (event.data.type === 'cacheComplete') {
-            console.log(event.data.message);
-            alert(event.data.message);
-          } else if (event.data.type === 'cacheError') {
-            console.error(event.data.message);
-          }
-        });
     </script>
 </body>
 </html>
