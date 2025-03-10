@@ -1,6 +1,6 @@
 // Service Worker File: sw.js
 
-const CACHE_NAME = 'mountaincircles-v1';
+const CACHE_NAME = 'mountaincircles-v2';
 const TILE_CACHE_NAME = 'mountaincircles-tiles-v1';
 const GEOJSON_CACHE_NAME = 'mountaincircles-geojson-v1';
 const DYNAMIC_CACHE_NAME = 'mountaincircles-dynamic-v1';
