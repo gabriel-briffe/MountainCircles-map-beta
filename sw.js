@@ -5,7 +5,7 @@ const TILE_CACHE_NAME = 'mountaincircles-tiles-v1';
 const GEOJSON_CACHE_NAME = 'mountaincircles-geojson-v1';
 const DYNAMIC_CACHE_NAME = 'mountaincircles-dynamic-v1';
 
-const BASE_PATH = '/MountainCircles-map-beta';
+const BASE_PATH = '/MountainCircles---map';
 
 // Global counter for the number of network fetches served (i.e., when there's no cached response)
 let networkFetchCount = 0;
@@ -20,7 +20,9 @@ const INITIAL_CACHE_URLS = [
   `${BASE_PATH}/icons/icon-192.png`,
   'https://cdn.jsdelivr.net/npm/maplibre-gl@latest/dist/maplibre-gl.js',
   'https://cdn.jsdelivr.net/npm/maplibre-gl@latest/dist/maplibre-gl.css',
-  'https://fonts.googleapis.com/icon?family=Material+Icons+Round'
+  'https://fonts.googleapis.com/icon?family=Material+Icons+Round',
+  'https://demotiles.maplibre.org/font/Open Sans Regular/0-255.pbf',
+  'https://demotiles.maplibre.org/font/Open Sans Regular/256-511.pbf'
 ];
 
 // Cache GeoJSON files for each policy and configuration
@@ -276,7 +278,7 @@ self.addEventListener('message', async (event) => {
   }
 
   if (event.data.type === 'cacheTiles') {
-    const cache = await caches.open('mountaincircles-tiles-v1');
+    const cache = await caches.open(TILE_CACHE_NAME);
     const tiles = event.data.tiles;
     const basePath = event.data.basePath;
     const BATCH_SIZE = 50; // Process 50 tiles concurrently
@@ -287,20 +289,24 @@ self.addEventListener('message', async (event) => {
         await Promise.all(batch.map(async (tile) => {
             try {
                 const url = `${basePath}/${tile.z}/${tile.x}/${tile.y}.png`;
+                
+                // Check if URL is already in cache
+                const cachedResponse = await cache.match(url);
+                if (cachedResponse) {
+                    event.source.postMessage({ type: 'cacheTileComplete' });
+                    return; // Skip fetching if already cached
+                }
+                
                 const response = await fetch(url);
                 if (response.ok) {
-                    await cache.put(url, response);
+                    await cache.put(url, response.clone());
                 }
-                // Always notify progress, even for 404s
-                event.source.postMessage({
-                    type: 'cacheTileComplete'
-                });
+                // Always notify progress even for 404s.
+                event.source.postMessage({ type: 'cacheTileComplete' });
             } catch (error) {
                 console.error('Error caching tile:', error);
-                // Continue with next tile even if one fails
-                event.source.postMessage({
-                    type: 'cacheTileComplete'
-                });
+                // Notify progress and continue to the next tile.
+                event.source.postMessage({ type: 'cacheTileComplete' });
             }
         }));
     }
