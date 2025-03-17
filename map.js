@@ -28,6 +28,18 @@ function clearMarker() {
 }
 
 /**
+ * Closes the sidebar if it's open
+ */
+function closeSidebarIfOpen() {
+    const sidebar = document.getElementById('airspace-sidebar');
+    if (sidebar && sidebar.style.display === 'block') {
+        sidebar.style.display = 'none';
+        return true;
+    }
+    return false;
+}
+
+/**
  * Sets up the airspace popup click handler on the map
  * @param {Object} mapInstance - The map instance
  */
@@ -35,6 +47,11 @@ export function setupAirspacePopupHandler(mapInstance) {
     // Add click handler for airspace popups
     mapInstance.on('click', async function(e) {
         const map = getMap();
+        
+        // Close the sidebar if it's open
+        if (closeSidebarIfOpen()) {
+            return;
+        }
         
         // Only process if airspace is visible
         if (getLayerManager().getVisibility('airspace-fill') !== 'visible') {

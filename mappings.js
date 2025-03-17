@@ -12,7 +12,7 @@ export const COLOR_MAPPING = {
     "RESTRICTED": "rgb(255, 0, 0)",             // Red
     "FIR": "rgb(0, 163, 0)",                    // Dark Green
     "FIS_SECTOR": "rgb(0, 66, 0)",              // Dark Green
-    "OVERFLIGHT_RESTRICTION": "rgb(255, 165, 0)", // Orange
+    "OVERFLIGHT_RESTRICTION": "rgb(255, 0, 0)", // Red
     "TRA": "rgb(255, 0, 0)",                    // Red
     "UNCLASSIFIED": "rgb(0, 0, 0)",             // Black
 

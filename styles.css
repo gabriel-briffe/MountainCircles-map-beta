@@ -138,7 +138,7 @@ h3 {
     align-items: center;
     flex-direction: column;
     max-height: 100%;
-    flex-wrap: wrap-reverse;
+    flex-wrap: wrap;
     gap: 10px;
     z-index: 1100;
 }
@@ -647,15 +647,13 @@ h3 {
 /* Airspace sidebar for type toggles */
 #airspace-sidebar {
     position: absolute;
-    left: 70px; /* Increased from 10px to provide space for the dock */
     background-color: var(--bg-light);
     padding: 15px;
     border-radius: var(--border-radius-large);
     box-shadow: 0 2px 10px var(--shadow-light);
-    max-height: 80vh;
     overflow-y: auto;
     display: none;
-    z-index: 2;
+    z-index: 1300; /* Increased to be above popup-menu (1200) */
     max-width: 250px;
     font-weight: var(--font-weight-normal);
     color: var(--text-light);
@@ -672,6 +670,8 @@ h3 {
 @media (orientation: portrait) {
     #airspace-sidebar {
         top: 70px;
+        left: 0; /* No margin in portrait mode */
+        max-height: calc(100vh - 70px); /* Full height minus top position */
     }
 }
 
@@ -680,6 +680,8 @@ h3 {
     #airspace-sidebar {
         top: 50%;
         transform: translateY(-50%);
+        left: 70px; /* 70px from left to provide space for the dock */
+        max-height: 100%; /* Can use full height in landscape */
     }
 }
 

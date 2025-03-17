@@ -46,6 +46,13 @@ import {
     pointLabelsLayerStyle
 } from "./layerStyles.js";
 
+// Import necessary functions from mapInitializer
+import {
+    createDynamicLayer,
+    createDynamicLineWithLabels,
+    ensureAirspaceLayersOnTop
+} from "./mapInitializer.js";
+
 /**
  * Creates a checkbox option with label for the sidebar
  * @param {string} id - The ID for the checkbox element
@@ -534,7 +541,7 @@ export function updateParametersBox(cfg) {
 }
 
 /**
- * Adds GeoJSON layers to the map based on current configuration
+ * Adds GeoJSON layers to the map
  */
 export function addGeoJSONLayers() {
     const configParts = getCurrentConfig().split('/');
@@ -548,6 +555,9 @@ export function addGeoJSONLayers() {
     addPolygonLayer();
     addLineStringLayers();
     addPointLayers();
+    
+    // Ensure airspace layers are on top of all other layers
+    ensureAirspaceLayersOnTop();
 }
 
 /**

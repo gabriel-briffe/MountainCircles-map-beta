@@ -1,5 +1,14 @@
 // Service Worker File: sw.js
 
+/**
+ * MountainCircles Map Service Worker
+ * Caching Strategy:
+ * - Files are cached indefinitely with no expiration
+ * - Users must manually trigger updates via the "Update App" button
+ * - Different cache stores are used for different types of resources
+ * - Old caches are cleaned up only when service worker version changes
+ */
+
 const CACHE_NAME = 'mountaincircles-v2';
 const TILE_CACHE_NAME = 'mountaincircles-tiles-v1';
 const GEOJSON_CACHE_NAME = 'mountaincircles-geojson-v1';

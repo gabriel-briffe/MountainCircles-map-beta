@@ -34,6 +34,7 @@ export const lineStringLayerStyle = {
     id: 'linestrings-layer',
     type: 'line',
     source: 'geojson-data',
+    minzoom: 7,
     filter: ['==', '$type', 'LineString'],
     paint: {
         'line-color': '#000',
@@ -45,7 +46,7 @@ export const lineStringLabelsLayerStyle = {
     id: 'linestrings-labels',
     type: 'symbol',
     source: 'geojson-data',
-    minzoom: 8,
+    minzoom: 9,
     filter: ['==', '$type', 'LineString'],
     layout: {
         'text-field': '{ELEV}',
@@ -72,9 +73,10 @@ export const pointLayerStyle = {
     id: 'points-layer',
     type: 'circle',
     source: 'geojson-data',
+    minzoom: 7,
     filter: ['==', '$type', 'Point'],
     paint: {
-        'circle-radius': 10,
+        'circle-radius': 5,
         'circle-color': '#ff0000',
         'circle-stroke-width': 2,
         'circle-stroke-color': '#fff'
@@ -85,6 +87,7 @@ export const pointLayerClickableStyle = {
     id: 'points-layer-clickable',
     type: 'circle',
     source: 'geojson-data',
+    minzoom: 7,
     filter: ['==', '$type', 'Point'],
     paint: {
         'circle-radius': 20,
@@ -97,11 +100,11 @@ export const pointLabelsLayerStyle = {
     id: 'points-labels',
     type: 'symbol',
     source: 'geojson-data',
-    minzoom: 7,
+    minzoom: 8,
     filter: ['==', '$type', 'Point'],
     layout: {
         'text-field': '{name}',
-        'text-size': 19, // This will be updated dynamically with getBaseTextSize() + 5
+        'text-size': 15, // This will be updated dynamically with getBaseTextSize() + 5
         'text-allow-overlap': false,
         'text-ignore-placement': false,
         'text-offset': [0.8, 0.8],

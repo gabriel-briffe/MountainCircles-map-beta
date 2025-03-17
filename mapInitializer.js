@@ -81,6 +81,11 @@ export function initializeMap(containerId, onMapReady) {
         if (typeof onMapReady === 'function') {
             onMapReady(mapInstance);
         }
+        
+        // Ensure airspace layers are always on top after all callbacks and layers are added
+        mapInstance.once('idle', () => {
+            ensureAirspaceLayersOnTop();
+        });
     });
 
     return mapInstance;
@@ -233,6 +238,9 @@ export function createDynamicLayer(id, style, data) {
     // Add the layer to the map
     getLayerManager().addLayerIfNotExists(`dynamic-${id}`, layerStyle);
     
+    // After adding a dynamic layer, ensure airspace layers remain on top
+    ensureAirspaceLayersOnTop();
+    
     return `dynamic-${id}`;
 }
 
@@ -318,9 +326,14 @@ function setupUIElements() {
         container.style.width = '100%';
     });
 
+    // Show cache options only when in standalone mode on mobile
     if (isRunningStandalone() && isMobileDevice()) {
         cacheContainer.style.display = 'flex';
         mapCacheContainer.style.display = 'flex';
+    }
+    
+    // Hide zoom buttons on all mobile devices regardless of standalone mode
+    if (isMobileDevice()) {
         document.getElementById('zoomInBtn').style.display = 'none';
         document.getElementById('zoomOutBtn').style.display = 'none';
     }
@@ -338,4 +351,22 @@ function setupUIElements() {
             installPrompt.style.display = 'none';
         });
     }
+}
+
+/**
+ * Ensures airspace layers are always on top of other layers
+ * This function should be called after all map layers are added
+ */
+export function ensureAirspaceLayersOnTop() {
+    const layerManager = getLayerManager();
+    
+    // Move airspace fill and outline layers to the top
+    // This ensures they appear above all other layers
+    layerManager.moveLayerToTop('airspace-outline');
+    layerManager.moveLayerToTop('airspace-fill');
+    
+    // Move highlight layer above airspace layers
+    layerManager.moveLayerToTop('highlight-airspace');
+    
+    console.log('Moved airspace layers to the top of the rendering order');
 } 
