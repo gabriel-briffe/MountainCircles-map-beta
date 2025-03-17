@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Airspace</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        
+        #sidebar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+            font-family: sans-serif;
+            font-size: 14px;
+        }
+        
+        /* Popup styling */
+        .popup-menu {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            padding: 0px;
+            z-index: 1000;
+            /* max-width: 50%; */
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: inline-flex;
+        }
+        .popup-content {
+            flex: 1;
+            padding-left: 10px;
+            overflow-y: auto;
+        }
+        .popup-section {
+            font-size: 14px;
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+            /* Make sections look clickable */
+            cursor: pointer;
+            /* Make text unselectable */
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        .popup-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        .popup-section.highlighted {
+            background-color: rgba(64, 224, 208, 0.5);
+        }
+        .limits-type-container {
+            display: flex;
+            align-items: center;
+        }
+        .limits-div {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .upper-limit {
+            line-height: 1;
+            border-bottom: 1px solid #666;
+        }
+        .lower-limit {
+            line-height: 1;
+        }
+        .colorBand {
+            position: absolute;
+            left: -10px;
+            top: 0;
+            width: 10px;
+            height: 100%;
+            opacity: 0.7;
+        }
+        .colorBand-highlighted {
+            opacity: 1 !important;
+        }
+        
+        .cross-section {
+            border-right: 4px solid #ccc;
+            padding: 0;
+            background: #f0f0f0;
+            position: relative;
+        }
+        .airspace-bar {
+            position: absolute;
+            opacity: 0.7;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 10px;
+        }
+        .airspace-bar.highlighted-bar {
+            border: 2px solid rgba(64, 224, 208, 1);
+            margin-left: -2px;
+            margin-bottom: -2px;
+            opacity: 1 !important;
+        }
+        .altitude-label {
+            font-size: 12px;
+            line-height: 1;
+            font-weight: bold;
+            padding: 0;
+            white-space: auto;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            padding-left: 2px;
+            padding-right: 2px;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+        .altitude-line {
+            position: absolute;
+            height: 1px;
+            background: #666;
+            left: 0;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div id="sidebar">
+        <!-- Checkboxes will be generated dynamically -->
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
+    <script type="module">
+        import style from "./style.js";
+        import { COLOR_MAPPING } from "./mappings.js";
+
+        const displayFields = ["name", "icaoClassTranslated", "typeTranslated", "lowerLimit", "upperLimit"];
+
+        function filterProperties(props, fields) {
+            const filtered = {};
+            fields.forEach(function (field) {
+                if (props.hasOwnProperty(field)) {
+                    filtered[field] = props[field];
+                }
+            });
+            return filtered;
+        }
+
+        function filterMapFeatures(features) {
+            return features.filter(function(feature) {
+                const type = feature.properties.type;
+                const checkbox = document.getElementById(`toggle-${type.replace(/\s+/g, '-')}`);
+                return checkbox ? checkbox.checked : true;
+            });
+        }
+
+        function triggerPopupRefresh(map) {
+            if (document.querySelector('.popup-menu')) {
+                refreshAirspacePopup(map);
+            }
+        }
+
+        // Global variables at the top
+        let lastPopupLngLat = null;
+        let highlightedFeatureKey = null;
+        let popupMarker = null;
+        let airspaceData = null;  // Add this to store the complete GeoJSON data
+
+        // Function to fetch and store the complete airspace data
+        function fetchAirspaceData() {
+            if (!airspaceData) {
+                return fetch('airspace.geojson')
+                    .then(response => response.json())
+                    .then(data => {
+                        airspaceData = data;
+                        return data;
+                    });
+            }
+            return Promise.resolve(airspaceData);
+        }
+
+        // Modified toggleFeatureHighlight to accept map as a parameter
+        function toggleFeatureHighlight(feature, index, sectionRefs, barRefs, map) {
+            const section = sectionRefs.get(index);
+            const bar = barRefs.get(index);
+            const alreadyHighlighted = section ? section.classList.contains('highlighted') : false;
+            
+            // Clear existing highlights
+            sectionRefs.forEach(s => {
+                s.classList.remove('highlighted');
+                let cb = s.querySelector('.colorBand');
+                if (cb) cb.classList.remove('colorBand-highlighted');
+            });
+            barRefs.forEach(b => b.classList.remove('highlighted-bar'));
+            
+            if (alreadyHighlighted) {
+                // Just clear everything
+                map.getSource('highlight-airspace-source').setData({ 
+                    type: 'FeatureCollection', 
+                    features: [] 
+                });
+                highlightedFeatureKey = null;
+            } else {
+                // Set new highlight
+                if (section) {
+                    section.classList.add('highlighted');
+                    let cb = section.querySelector('.colorBand');
+                    if (cb) cb.classList.add('colorBand-highlighted');
+                }
+                if (bar) {
+                    bar.classList.add('highlighted-bar');
+                }
+
+                // Get the complete feature from our stored data
+                const completeFeature = airspaceData.features.find(f => 
+                    f.properties.AN === feature.properties.AN
+                );
+                if (completeFeature) {
+                    map.getSource('highlight-airspace-source').setData({
+                        type: 'FeatureCollection',
+                        features: [completeFeature]
+                    });
+                }
+                
+                highlightedFeatureKey = feature.properties.AN;
+                if (section) {
+                    section.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }
+            }
+        }
+
+
+        // Simplified clearHighlight
+        function clearHighlight(map) {
+            map.getSource('highlight-airspace-source').setData({ 
+                type: 'FeatureCollection', 
+                features: [] 
+            });
+            highlightedFeatureKey = null;
+            if (popupMarker) {
+                popupMarker.remove();
+                popupMarker = null;
+            }
+        }
+
+        // Helper function which creates a popup section for a feature.
+        function buildPopupSection(feature, map, popup) {
+            const props = feature.properties;
+            const featureKey = props.AN || props.type;
+
+            // Create the section
+            const section = document.createElement('div');
+            section.className = 'popup-section';
+            section.style.position = 'relative';
+            section.dataset.featureKey = featureKey;
+
+            // Create header with AN (name) and type
+            const headerDiv = document.createElement('div');
+            headerDiv.innerHTML = `<strong>${props.AN || props.type}</strong>`;
+            section.appendChild(headerDiv);
+
+            // Create flex container for limits
+            const limitsTypeContainer = document.createElement('div');
+            limitsTypeContainer.className = 'limits-type-container';
+
+            // Limits stack with underline
+            const limitsDiv = document.createElement('div');
+            limitsDiv.className = 'limits-div';
+
+            // Upper limit (AH)
+            const upperLimitDiv = document.createElement('div');
+            upperLimitDiv.textContent = props.AH || '';
+            upperLimitDiv.className = 'upper-limit';
+            limitsDiv.appendChild(upperLimitDiv);
+
+            // Lower limit (AL)
+            const lowerLimitDiv = document.createElement('div');
+            lowerLimitDiv.textContent = props.AL || '';
+            lowerLimitDiv.className = 'lower-limit';
+            limitsDiv.appendChild(lowerLimitDiv);
+
+            limitsTypeContainer.appendChild(limitsDiv);
+
+            // Add type if different from name
+            if (props.type && props.AN && props.type !== props.AN) {
+                const typeDiv = document.createElement('div');
+                typeDiv.textContent = props.type;
+                typeDiv.style.marginLeft = '10px';
+                limitsTypeContainer.appendChild(typeDiv);
+            }
+
+            section.appendChild(limitsTypeContainer);
+
+            // Add frequency information if available
+            if (props.AG || props.AF) {
+                const freqContainer = document.createElement("div");
+                freqContainer.style.color = "darkgreen";
+                freqContainer.style.fontSize = "0.9em";
+                freqContainer.textContent = `${props.AG || ''} ${props.AF || ''}`.trim();
+                section.appendChild(freqContainer);
+            }
+
+            // Add the colored band using the type
+            const colorBand = document.createElement('div');
+            colorBand.className = 'colorBand';
+            colorBand.style.backgroundColor = COLOR_MAPPING[props.type] || COLOR_MAPPING["other"];
+            section.appendChild(colorBand);
+
+            return section;
+        }
+
+        /* Add the updatePopupStyle function near the top of the script, for example after the filterProperties function */
+        function updatePopupStyle() {
+            const popup = document.querySelector('.popup-menu');
+            if (!popup) return;
+            const mapEl = document.getElementById('map');
+            if (window.innerWidth > window.innerHeight) {
+                // Landscape mode
+                popup.style.maxWidth = '50%';
+                popup.style.width = 'fit-content';
+                popup.style.maxHeight = mapEl.clientHeight + 'px';
+                popup.style.right = '0px';
+                popup.style.top = '50%';
+                popup.style.bottom = '';
+                popup.style.transform = 'translateY(-50%)';
+            } else {
+                // Portrait mode
+                popup.style.maxWidth = '100%';
+                popup.style.width = 'fit-content';
+                popup.style.maxHeight = (mapEl.clientHeight * 0.5) + 'px';
+                popup.style.right = '0px';
+                popup.style.top = '';
+                popup.style.bottom = '0px';
+                popup.style.transform = '';
+            }
+        }
+
+        /* Add event listeners to update popup style when window resizes or orientation changes */
+        window.addEventListener('resize', updatePopupStyle);
+        window.addEventListener('orientationchange', updatePopupStyle);
+
+        function createAirspacePopup(e, features, map) {
+            // Remove any existing popup
+            const existing = document.querySelector('.popup-menu');
+            if (existing) {
+                existing.remove();
+            }
+
+            // Create the popup container
+            const popup = document.createElement('div');
+            popup.className = 'popup-menu';
+            popup.style.display = 'inline-flex';
+
+            // Append the popup to the map container
+            document.getElementById('map').appendChild(popup);
+
+            // Call updatePopupStyle to set appropriate styling based on orientation
+            updatePopupStyle();
+
+            // Create containers
+            const crossSectionContainer = document.createElement('div');
+            crossSectionContainer.className = 'cross-section';
+
+            const contentContainer = document.createElement('div');
+            contentContainer.className = 'popup-content';
+
+            // Create local refs
+            const sectionRefs = new Map();
+            const barRefs = new Map();
+
+            // Build content first (sections)
+            if (features.length) {
+                features.sort((a, b) => (b.properties.lowerLimitMeters || 0) - (a.properties.lowerLimitMeters || 0));
+                features.forEach((feature, index) => {
+                    const section = buildPopupSection(feature, map, popup);
+                    section.dataset.featureIndex = index;
+                    sectionRefs.set(index, section);
+
+                    // Pass map to toggleFeatureHighlight
+                    section.addEventListener('click', () => {
+                        toggleFeatureHighlight(feature, index, sectionRefs, barRefs, map);
+                    });
+
+                    contentContainer.appendChild(section);
+                });
+            } else {
+                contentContainer.innerHTML = "<p>No Airspace found at this location, MAX FL115 / FL195 in France.</p>";
+            }
+
+            // Assemble popup with content
+            popup.appendChild(crossSectionContainer);
+            popup.appendChild(contentContainer);
+
+            // Build cross-section with bars
+            const heightScale = popup.clientHeight;
+            if (features.length) {
+                // Set fixed maximum height to 6000m
+                const maxUpperLimit = 6000;  // Instead of calculating from features
+                const barWidth = 20;
+                const barSpacing = 5;
+
+                // Track bar positions and collect unique altitudes with parsed values
+                const columns = [];
+                const altitudeSet = new Set();
+                features.forEach((feature, index) => {
+                    const lowerLimitMeters = feature.properties.lowerLimitMeters || 0;
+                    const upperLimitMeters = Math.min(feature.properties.upperLimitMeters || 0, maxUpperLimit);  // Cap at 6000m
+                    const lowerDisplay = feature.properties.AL || '';
+                    const upperDisplay = feature.properties.AH || '';
+
+                    // Add tuples to the Set
+                    altitudeSet.add(JSON.stringify([lowerLimitMeters, lowerDisplay]));
+                    altitudeSet.add(JSON.stringify([upperLimitMeters, upperDisplay]));
+
+                    const yUpper = (upperLimitMeters / maxUpperLimit) * 100;
+                    const yLower = (lowerLimitMeters / maxUpperLimit) * 100;
+                    const barHeight = yUpper - yLower;
+
+                    let placed = false;
+                    for (let col of columns) {
+                        let canPlace = true;
+                        for (let existingBar of col) {
+                            const existingLower = existingBar.lowerLimit;
+                            const existingUpper = existingBar.upperLimit;
+                            if (!(upperLimitMeters <= existingLower || lowerLimitMeters >= existingUpper)) {
+                                canPlace = false;
+                                break;
+                            }
+                        }
+                        if (canPlace) {
+                            col.push({ lowerLimit: lowerLimitMeters, upperLimit: upperLimitMeters, feature, index });
+                            placed = true;
+                            break;
+                        }
+                    }
+                    if (!placed) {
+                        columns.push([{ lowerLimit: lowerLimitMeters, upperLimit: upperLimitMeters, feature, index }]);
+                    }
+                });
+
+                // Draw bars with click handlers (unchanged)
+                let totalWidth = 0;
+                columns.forEach((column, colIndex) => {
+                    const xPos = barSpacing + colIndex * (barWidth + barSpacing);
+                    column.forEach(({ lowerLimit, upperLimit, feature, index }) => {
+                        const yUpper = (upperLimit / maxUpperLimit) * 100;
+                        const yLower = (lowerLimit / maxUpperLimit) * 100;
+                        const barHeight = yUpper - yLower;
+
+                        if (barHeight <= 0) {
+                            console.warn(`Invalid bar height for ${feature.properties.icaoClass || feature.properties.type}: ${barHeight}%`);
+                            return;
+                        }
+
+                        const bar = document.createElement('div');
+                        bar.className = 'airspace-bar';
+                        bar.style.left = `${xPos}px`;
+                        bar.style.bottom = `${yLower}%`;
+                        bar.style.width = `${barWidth}px`;
+                        bar.style.height = `${barHeight}%`;
+                        bar.style.backgroundColor = COLOR_MAPPING[feature.properties.type] || COLOR_MAPPING["other"];
+                        barRefs.set(index, bar);
+
+                        // Pass map to toggleFeatureHighlight
+                        bar.addEventListener('click', () => {
+                            toggleFeatureHighlight(feature, index, sectionRefs, barRefs, map);
+                        });
+
+                        crossSectionContainer.appendChild(bar);
+                    });
+                    totalWidth = xPos + barWidth;
+                });
+
+                // Set container width
+                totalWidth += barSpacing;
+                const width = Math.max(totalWidth, 60);
+                crossSectionContainer.style.width = `${width}px`;
+
+                // Add unique altitude labels using parsed values
+                const altitudes = Array.from(altitudeSet)
+                    .map(item => JSON.parse(item)) // Convert back from string to [meters, parsed] array
+                    .sort((a, b) => b[0] - a[0]) // Sort by meters (first element)
+                    .filter(([_, displayValue]) => {
+                        // Skip if it's a FL above 195
+                        if (displayValue && displayValue.startsWith('FL')) {
+                            const flNumber = parseInt(displayValue.substring(2));
+                            if (!isNaN(flNumber) && flNumber > 195) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+
+                altitudes.forEach(([altitudeMeters, displayValue]) => {
+                    const yPos = (altitudeMeters / maxUpperLimit) * 100;
+                    const label = document.createElement('div');
+                    label.className = 'altitude-label';
+                    label.textContent = displayValue;
+                    label.style.bottom = `calc(${yPos}% - 12px)`;
+                    crossSectionContainer.appendChild(label);
+
+                    const line = document.createElement('div');
+                    line.className = 'altitude-line';
+                    line.style.bottom = `${yPos}%`;
+                    line.style.width = `${width}px`;
+                    crossSectionContainer.appendChild(line);
+                });
+            }
+        }
+        function refreshAirspacePopup(map) {
+            if (!lastPopupLngLat) return;
+            
+            map.once('idle', () => {
+                const currentPoint = map.project(lastPopupLngLat);
+                let refreshedFeatures = map.queryRenderedFeatures(currentPoint, {
+                    layers: ['airspace-fill']
+                });
+                refreshedFeatures = filterMapFeatures(refreshedFeatures);
+                const existingPopup = document.querySelector('.popup-menu');
+                if (existingPopup) {
+                    existingPopup.remove();
+                }
+                
+                createAirspacePopup({ lngLat: lastPopupLngLat }, refreshedFeatures, map);
+                
+                if (highlightedFeatureKey) {
+                    const newPopup = document.querySelector('.popup-menu');
+                    if (newPopup) {
+                        const highlightedSection = newPopup.querySelector(`.popup-section[data-feature-key="${highlightedFeatureKey}"]`);
+                        if (highlightedSection) {
+                            highlightedSection.click(); // Trigger the click to reapply highlight
+                        } else {
+                            clearHighlight(map);
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTypeCheckboxes(features, map) {
+            console.log("Starting createTypeCheckboxes");
+            const sidebar = document.getElementById('sidebar');
+            sidebar.innerHTML = '';
+            
+            console.log('Features found:', features.length);
+            
+            if (!features || features.length === 0) {
+                console.log("No features found!");
+                return;
+            }
+
+            const types = new Set(features.map(f => f.properties.type).filter(Boolean));
+            console.log('Types found:', Array.from(types));
+            
+            Array.from(types).sort().forEach(type => {
+                const label = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `toggle-${type.replace(/\s+/g, '-')}`;
+                checkbox.checked = true;
+                
+                checkbox.addEventListener('change', () => {
+                    updateAirspaceFilter(map);
+                });
+                
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(` ${type}`));
+                label.appendChild(document.createElement('br'));
+                sidebar.appendChild(label);
+            });
+        }
+
+        function updateAirspaceFilter(map) {
+            const checkboxes = document.querySelectorAll('#sidebar input[type="checkbox"]');
+            const enabledTypes = Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.id.replace('toggle-', '').replace(/-/g, ' '));
+            
+            const filter = ['in', ['get', 'type'], ['literal', enabledTypes]];
+            map.setFilter('airspace-fill', filter);
+            map.setFilter('airspace-outline', filter);
+            
+            triggerPopupRefresh(map);
+        }
+
+        async function initializeApp() {
+            console.log("initializeApp started");
+
+            if ('serviceWorker' in navigator) {
+                if (navigator.serviceWorker.controller) {
+                    console.log("Page already controlled by service worker:", navigator.serviceWorker.controller.scriptURL);
+                } else {
+                    console.log("No controller, registering service worker");
+                    try {
+                        const registration = await navigator.serviceWorker.register('sw2.js', { scope: './' });
+                        console.log("Forcing service worker update");
+                        await registration.update();
+
+                        if (registration.waiting) {
+                            console.log("Skipping waiting phase");
+                            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                        if (registration.installing) {
+                            console.log("Waiting for installing worker to activate");
+                            await new Promise(resolve => {
+                                registration.installing.addEventListener('statechange', () => {
+                                    if (registration.installing.state === 'activated') resolve();
+                                });
+                            });
+                        }
+
+                        console.log("Waiting for service worker to be ready");
+                        await navigator.serviceWorker.ready;
+                        console.log('Service Worker active:', registration.scope);
+
+                        if (!navigator.serviceWorker.controller) {
+                            console.log("No controller after registration, forcing reload");
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Service Worker registration failed:', error);
+                    }
+                }
+            } else {
+                console.log("Service workers not supported");
+            }
+
+            console.log("Initializing map");
+            const map = new maplibregl.Map({
+                container: 'map',
+                style: style,
+                center: [2.2137, 46.2276],
+                zoom: 5,
+                doubleClickZoom: false
+            });
+
+            map.on('load', function() {
+                console.log("Map loaded");
+
+                const source = map.getSource('airspace');
+                console.log("Airspace source:", source);
+
+                // Add highlight layer for popups
+                map.addSource('highlight-airspace-source', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+
+                map.addLayer({
+                    id: 'highlight-airspace',
+                    type: 'fill',
+                    source: 'highlight-airspace-source',
+                    paint: {
+                        'fill-color': 'rgba(64,224,208,0.5)',
+                        'fill-outline-color': 'rgba(64,224,208,1)'
+                    }
+                });
+
+                // Load data for checkboxes
+                fetch('airspace.geojson')
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log("Fetched GeoJSON data:", data);
+                        if (data && data.features) {
+                            createTypeCheckboxes(data.features, map);
+                        }
+                    })
+                    .catch(error => console.error("Error loading GeoJSON:", error));
+
+                // Fetch the complete airspace data
+                fetchAirspaceData();
+
+                // Add click handler for popups
+                map.on('click', function(e) {
+                    lastPopupLngLat = e.lngLat;
+
+                    const existingPopup = document.querySelector('.popup-menu');
+                    if (existingPopup) {
+                        existingPopup.remove();
+                        clearHighlight(map);
+                        lastPopupLngLat = null;
+                        return;
+                    }
+
+                    if (popupMarker) {
+                        popupMarker.remove();
+                    }
+                    popupMarker = new maplibregl.Marker({ color: 'red' })
+                        .setLngLat(e.lngLat)
+                        .addTo(map);
+
+                    let currentPoint = map.project(lastPopupLngLat);
+                    let features = map.queryRenderedFeatures(currentPoint, {
+                        layers: ['airspace-fill']
+                    });
+                    features = filterMapFeatures(features);
+
+                    console.log("Features at click:", features.map(f => ({
+                        type: f.properties.type,
+                        name: f.properties.AN,
+                        upper: f.properties.AH,
+                        lower: f.properties.AL
+                    })));
+
+                    // Ensure we have the complete data before creating the popup
+                    fetchAirspaceData().then(() => {
+                        createAirspacePopup(e, features, map);
+                    });
+                });
+            });
+
+            map.on('error', function (e) {
+                console.error("Map error:", e);
+            });
+        }
+
+        console.log("Calling initializeApp");
+        initializeApp();
+    </script>
+</body>
+
+</html>
