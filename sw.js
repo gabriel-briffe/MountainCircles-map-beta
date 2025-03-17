@@ -7,9 +7,11 @@ const DYNAMIC_CACHE_NAME = 'mountaincircles-dynamic-v1';
 const AIRSPACE_CACHE_NAME = 'mountaincircles-airspace-v1';
 
 // Automatically determine base path from service worker scope
-const BASE_PATH = self.location.pathname.indexOf('/mountainCircles-map-beta/') > -1 
-    ? '/mountainCircles-map-beta'
-    : '.';
+const BASE_PATH = self.location.hostname.includes('github.io')
+    ? '' // Empty base path for root-level GitHub Pages deployment
+    : self.location.pathname.indexOf('/mountainCircles-map-beta/') > -1 
+        ? '/mountainCircles-map-beta'
+        : '.';
 
 // Global counter for the number of network fetches served (i.e., when there's no cached response)
 let networkFetchCount = 0;

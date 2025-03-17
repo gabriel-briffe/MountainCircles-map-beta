@@ -3,14 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <base href="/MountainCircles-map-beta/"> -->
-    <base href="/./">
+    <!-- The base href will be set dynamically via JavaScript -->
     <title>MountainCircles Map - Beta</title>
     <!-- Using jsDelivr instead of unpkg to avoid potential network errors on Windows -->
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@latest/dist/maplibre-gl.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="manifest" href="manifest.json">
+    <script>
+        // Automatically determine if we're on GitHub Pages or running locally
+        function getBasePath() {
+            // Check if we're on GitHub Pages (github.io domain)
+            if (window.location.hostname.includes('github.io')) {
+                // We're on GitHub Pages
+                return '';  // Empty base path for root-level deployment
+            }
+            
+            // Check for repository name in path as fallback
+            const pathname = window.location.pathname;
+            const pathSegments = pathname.split('/').filter(segment => segment);
+            
+            // If path includes our repository name
+            if (pathSegments.length > 0 && pathSegments[0] === 'mountainCircles-map-beta') {
+                return '/mountainCircles-map-beta';
+            }
+            
+            // Otherwise, we're running locally
+            return '.';
+        }
+        
+        // Set the base path early and create a base element dynamically
+        window.BASE_PATH = getBasePath();
+        document.write(`<base href="${window.BASE_PATH}/">`);
+    </script>
     <link href="styles.css" rel="stylesheet" />
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -134,13 +159,17 @@
     <script>
         // Automatically determine if we're on GitHub Pages or running locally
         function getBasePath() {
-            // Get the pathname from the current URL
-            const pathname = window.location.pathname;
+            // Check if we're on GitHub Pages (github.io domain)
+            if (window.location.hostname.includes('github.io')) {
+                // We're on GitHub Pages
+                return '';  // Empty base path for root-level deployment
+            }
             
-            // Extract the repository name from pathname (if running on GitHub Pages)
+            // Check for repository name in path as fallback
+            const pathname = window.location.pathname;
             const pathSegments = pathname.split('/').filter(segment => segment);
             
-            // If path includes a repository name (GitHub Pages)
+            // If path includes our repository name
             if (pathSegments.length > 0 && pathSegments[0] === 'mountainCircles-map-beta') {
                 return '/mountainCircles-map-beta';
             }

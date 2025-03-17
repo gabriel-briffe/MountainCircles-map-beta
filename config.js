@@ -7,16 +7,19 @@
 import { COLOR_MAPPING, AIRSPACE_TYPE_ORDER } from "./mappings.js";
 
 // Automatically determine if we're on GitHub Pages or running locally
-// GitHub Pages will have the repository name in the path
-// Local development will not have the repository name in the path
+// GitHub Pages will have either github.io in hostname or the repository name in the path
 function getBasePath() {
-    // Get the pathname from the current URL
-    const pathname = window.location.pathname;
+    // Check if we're on GitHub Pages (github.io domain)
+    if (window.location.hostname.includes('github.io')) {
+        // We're on GitHub Pages
+        return '';  // Empty base path for root-level deployment
+    }
     
-    // Extract the repository name from pathname (if running on GitHub Pages)
+    // Check for repository name in path as fallback
+    const pathname = window.location.pathname;
     const pathSegments = pathname.split('/').filter(segment => segment);
     
-    // If path includes a repository name (GitHub Pages)
+    // If path includes our repository name
     if (pathSegments.length > 0 && pathSegments[0] === 'mountainCircles-map-beta') {
         return '/mountainCircles-map-beta';
     }
