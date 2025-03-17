@@ -6,8 +6,27 @@
 // Import color mappings
 import { COLOR_MAPPING, AIRSPACE_TYPE_ORDER } from "./mappings.js";
 
-// Base path for API requests
-export const BASE_PATH = '.';
+// Automatically determine if we're on GitHub Pages or running locally
+// GitHub Pages will have the repository name in the path
+// Local development will not have the repository name in the path
+function getBasePath() {
+    // Get the pathname from the current URL
+    const pathname = window.location.pathname;
+    
+    // Extract the repository name from pathname (if running on GitHub Pages)
+    const pathSegments = pathname.split('/').filter(segment => segment);
+    
+    // If path includes a repository name (GitHub Pages)
+    if (pathSegments.length > 0 && pathSegments[0] === 'mountainCircles-map-beta') {
+        return '/mountainCircles-map-beta';
+    }
+    
+    // Otherwise, we're running locally
+    return '.';
+}
+
+// Base path for API requests - automatically detects environment
+export const BASE_PATH = getBasePath();
 
 // Default text size for labels
 export const DEFAULT_TEXT_SIZE = 14;

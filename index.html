@@ -132,8 +132,25 @@
     </div>
 
     <script>
-        //  window.BASE_PATH = '/MountainCircles-map-beta';
-        window.BASE_PATH = '/.';
+        // Automatically determine if we're on GitHub Pages or running locally
+        function getBasePath() {
+            // Get the pathname from the current URL
+            const pathname = window.location.pathname;
+            
+            // Extract the repository name from pathname (if running on GitHub Pages)
+            const pathSegments = pathname.split('/').filter(segment => segment);
+            
+            // If path includes a repository name (GitHub Pages)
+            if (pathSegments.length > 0 && pathSegments[0] === 'mountainCircles-map-beta') {
+                return '/mountainCircles-map-beta';
+            }
+            
+            // Otherwise, we're running locally
+            return '.';
+        }
+        
+        // Set the base path based on the environment
+        window.BASE_PATH = getBasePath();
 
         // Register service worker immediately (moved to top for early activation)
         if ('serviceWorker' in navigator) {
