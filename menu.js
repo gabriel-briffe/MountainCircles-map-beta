@@ -270,11 +270,41 @@ export async function updateApp() {
         
         await registration.update();
         
-        // Fetch the main files with cache busting
-        await Promise.all([
-            fetch(`${BASE_PATH}/index.html`, { cache: 'reload' }),
-            fetch(`${BASE_PATH}/sw.js`, { cache: 'reload' })
-        ]);
+        // List of core files to refresh
+        const filesToRefresh = [
+            // Core HTML
+            `${BASE_PATH}/index.html`,
+            // Service worker
+            `${BASE_PATH}/sw.js`,
+            // CSS files
+            `${BASE_PATH}/styles.css`,
+            // JS files
+            `${BASE_PATH}/main.js`,
+            `${BASE_PATH}/init.js`,
+            `${BASE_PATH}/mapInitializer.js`,
+            `${BASE_PATH}/map.js`,
+            `${BASE_PATH}/sidebar.js`,
+            `${BASE_PATH}/menu.js`,
+            `${BASE_PATH}/dock.js`,
+            `${BASE_PATH}/layers.js`,
+            `${BASE_PATH}/airspace.js`,
+            `${BASE_PATH}/config.js`,
+            `${BASE_PATH}/state.js`,
+            `${BASE_PATH}/utils.js`,
+            `${BASE_PATH}/igc.js`,
+            `${BASE_PATH}/install.js`,
+            `${BASE_PATH}/airspaceStyle.js`,
+            `${BASE_PATH}/mappings.js`,
+            `${BASE_PATH}/layerStyles.js`
+        ];
+        
+        // Fetch all files with cache busting
+        await Promise.all(
+            filesToRefresh.map(file => 
+                fetch(file, { cache: 'reload' })
+                    .catch(err => console.warn(`Failed to refresh ${file}:`, err))
+            )
+        );
         
         alert('App update completed. Please reload the page to see the newest version.');
         return { success: true };
