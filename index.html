@@ -174,33 +174,13 @@
     </div>
 
     <script>
-        // Automatically determine if we're on GitHub Pages or running locally
-        function getBasePath() {
-            // Check if we're on GitHub Pages (github.io domain)
-            if (window.location.hostname.includes('github.io')) {
-                // We're on GitHub Pages
-                return '';  // Empty base path for root-level deployment
-            }
-            
-            // Check for repository name in path as fallback
-            const pathname = window.location.pathname;
-            const pathSegments = pathname.split('/').filter(segment => segment);
-            
-            // If path includes our repository name
-            if (pathSegments.length > 0 && pathSegments[0] === 'mountainCircles-map-beta') {
-                return '/mountainCircles-map-beta';
-            }
-            
-            // Otherwise, we're running locally
-            return '.';
-        }
-        
-        // Set the base path based on the environment
-        window.BASE_PATH = getBasePath();
-
         // Register service worker immediately (moved to top for early activation)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
+                console.log('Registering service worker with BASE_PATH:', window.BASE_PATH);
+                console.log('Service worker URL:', `${window.BASE_PATH}/sw.js`);
+                console.log('Service worker scope:', `${window.BASE_PATH}/`);
+                
                 navigator.serviceWorker.register(`${window.BASE_PATH}/sw.js`, { scope: `${window.BASE_PATH}/` })
                     .then(registration => {
                         console.log('Service Worker registered:', registration.scope);
