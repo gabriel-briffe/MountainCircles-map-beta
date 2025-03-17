@@ -13,30 +13,47 @@
     <script>
         // Automatically determine if we're on GitHub Pages or running locally
         function getBasePath() {
-            // Check if we're on GitHub Pages (github.io domain)
-            if (window.location.hostname.includes('github.io')) {
-                // We're on GitHub Pages
-                return '';  // Empty base path for root-level deployment
+            // Debug information about the current environment
+            console.log('Debug - Location:', {
+                protocol: window.location.protocol,
+                hostname: window.location.hostname,
+                pathname: window.location.pathname,
+                href: window.location.href
+            });
+            
+            // Check for GitHub Pages project site
+            if (window.location.hostname === 'gabriel-briffe.github.io') {
+                console.log('Debug - Detected GitHub Pages site');
+                // Use the exact case for the repository name that matches the URL
+                return '/MountainCircles-map-beta';
             }
             
             // Check for repository name in path as fallback
             const pathname = window.location.pathname;
             const pathSegments = pathname.split('/').filter(segment => segment);
             
-            // If path includes our repository name
-            if (pathSegments.length > 0 && pathSegments[0] === 'mountainCircles-map-beta') {
-                return '/mountainCircles-map-beta';
+            console.log('Debug - Path segments:', pathSegments);
+            
+            // If path includes our repository name with correct case
+            if (pathSegments.length > 0 && pathSegments[0] === 'MountainCircles-map-beta') {
+                console.log('Debug - Detected repository in path');
+                return '/MountainCircles-map-beta';
             }
             
             // Otherwise, we're running locally
+            console.log('Debug - Using local development path');
             return '.';
         }
         
         // Set the base path early and create a base element dynamically
         window.BASE_PATH = getBasePath();
+        console.log('Debug - Final BASE_PATH:', window.BASE_PATH);
+        console.log('Debug - Writing base element with href:', `${window.BASE_PATH}/`);
         document.write(`<base href="${window.BASE_PATH}/">`);
     </script>
-    <link href="styles.css" rel="stylesheet" />
+    <link href="styles.css" rel="stylesheet" onerror="console.error('Failed to load styles.css')" onload="console.log('Successfully loaded styles.css')"/>
+    <!-- Add error handlers to resources -->
+    <link rel="manifest" href="manifest.json" onerror="console.error('Failed to load manifest.json')" onload="console.log('Successfully loaded manifest.json')"/>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -239,6 +256,6 @@
     </script>
     
     <!-- Import the main JavaScript file -->
-    <script type="module" src="main.js"></script>
+    <script type="module" src="main.js" onerror="console.error('Failed to load main.js')" onload="console.log('Successfully loaded main.js')"></script>
 </body>
 </html>

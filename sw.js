@@ -7,11 +7,37 @@ const DYNAMIC_CACHE_NAME = 'mountaincircles-dynamic-v1';
 const AIRSPACE_CACHE_NAME = 'mountaincircles-airspace-v1';
 
 // Automatically determine base path from service worker scope
-const BASE_PATH = self.location.hostname.includes('github.io')
-    ? '' // Empty base path for root-level GitHub Pages deployment
-    : self.location.pathname.indexOf('/mountainCircles-map-beta/') > -1 
-        ? '/mountainCircles-map-beta'
-        : '.';
+function getBasePath() {
+    try {
+        console.log('SW - Location:', {
+            origin: self.location.origin,
+            hostname: self.location.hostname, 
+            pathname: self.location.pathname
+        });
+        
+        // Check if on GitHub Pages site
+        if (self.location.hostname === 'gabriel-briffe.github.io') {
+            console.log('SW - Detected GitHub Pages site');
+            return '/MountainCircles-map-beta';
+        }
+        
+        // Check if pathname contains the repo name
+        if (self.location.pathname.includes('/MountainCircles-map-beta/')) {
+            console.log('SW - Detected repository path in URL');
+            return '/MountainCircles-map-beta';
+        }
+        
+        // Default for local development
+        console.log('SW - Using local development path');
+        return '.';
+    } catch (e) {
+        console.error('SW - Error in getBasePath:', e);
+        return '.';
+    }
+}
+
+const BASE_PATH = getBasePath();
+console.log('SW - Final BASE_PATH:', BASE_PATH);
 
 // Global counter for the number of network fetches served (i.e., when there's no cached response)
 let networkFetchCount = 0;

@@ -7,25 +7,44 @@
 import { COLOR_MAPPING, AIRSPACE_TYPE_ORDER } from "./mappings.js";
 
 // Automatically determine if we're on GitHub Pages or running locally
-// GitHub Pages will have either github.io in hostname or the repository name in the path
 function getBasePath() {
-    // Check if we're on GitHub Pages (github.io domain)
-    if (window.location.hostname.includes('github.io')) {
-        // We're on GitHub Pages
-        return '';  // Empty base path for root-level deployment
+    if (typeof window === 'undefined') {
+        // If running in a non-browser environment (like Node.js)
+        return '.';
     }
-    
-    // Check for repository name in path as fallback
-    const pathname = window.location.pathname;
-    const pathSegments = pathname.split('/').filter(segment => segment);
-    
-    // If path includes our repository name
-    if (pathSegments.length > 0 && pathSegments[0] === 'mountainCircles-map-beta') {
-        return '/mountainCircles-map-beta';
+
+    try {
+        console.log('Config.js - Location:', {
+            protocol: window.location.protocol,
+            hostname: window.location.hostname,
+            pathname: window.location.pathname,
+            href: window.location.href
+        });
+        
+        // Check for GitHub Pages site
+        if (window.location.hostname === 'gabriel-briffe.github.io') {
+            console.log('Config.js - Detected GitHub Pages site');
+            // Use exact case for repository name
+            return '/MountainCircles-map-beta';
+        }
+        
+        // Check for repository name in path as fallback
+        const pathname = window.location.pathname;
+        const pathSegments = pathname.split('/').filter(segment => segment);
+        
+        // If path includes our repository name with correct case
+        if (pathSegments.length > 0 && pathSegments[0] === 'MountainCircles-map-beta') {
+            console.log('Config.js - Detected repository in path');
+            return '/MountainCircles-map-beta';
+        }
+        
+        // Otherwise, we're running locally
+        console.log('Config.js - Using local development path');
+        return '.';
+    } catch (e) {
+        console.error('Error in getBasePath:', e);
+        return '.';
     }
-    
-    // Otherwise, we're running locally
-    return '.';
 }
 
 // Base path for API requests - automatically detects environment
