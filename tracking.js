@@ -597,26 +597,165 @@ function recordTrackPoint(position) {
       return;
     }
     
+    const tracklog = getTracklog();
+    const previousPoint = tracklog.length > 0 ? tracklog[tracklog.length - 1] : null;
+    
+    // Create the new point
     const point = {
       coordinates: [lng, lat],
       altitude: position.coords.altitude || 0,
       timestamp: now
     };
     
+    // Pre-calculate vertical speed if we have a previous point
+    if (previousPoint) {
+      const timeDiff = (now - previousPoint.timestamp) / 1000; // seconds
+      if (timeDiff >= 0.1) {
+        const altDiff = (point.altitude || 0) - (previousPoint.altitude || 0); // meters
+        const verticalSpeed = altDiff / timeDiff; // m/s
+        point.verticalSpeed = verticalSpeed;
+      }
+    }
+    
     // Log the point for debugging
     console.log(`Recording point: [${point.coordinates[0].toFixed(5)}, ${point.coordinates[1].toFixed(5)}], alt: ${point.altitude}`);
     
     // Add to tracklog
-    const newTracklog = [...getTracklog(), point];
+    const newTracklog = [...tracklog, point];
     setTracklog(newTracklog);
     setLastRecordedTime(now);
     
-    // Update the display immediately after recording a new point
-    updateTracklogDisplay();
+    // Update the display incrementally with just the new segment
+    updateTracklogDisplayIncremental(previousPoint, point);
     
     return true; // Return true if we recorded a point
   }
   return false; // Return false if we did not record a point (throttled)
+}
+
+// Incrementally update the tracklog display with just the new segment
+function updateTracklogDisplayIncremental(previousPoint, newPoint) {
+  if (!previousPoint || !newPoint) {
+    // If no previous point, do a full update
+    updateTracklogDisplay();
+    return;
+  }
+  
+  const map = getMap();
+  if (!map) {
+    console.error('Map not available');
+    return;
+  }
+  
+  // Create a single new segment feature
+  const segmentFeature = createSegmentFeature(previousPoint, newPoint);
+  if (!segmentFeature) {
+    console.warn('Could not create valid segment feature');
+    return;
+  }
+  
+  try {
+    // Get the existing sources
+    const source = map.getSource('tracklog-source');
+    const fullSource = map.getSource('tracklog-full-source');
+    
+    if (source) {
+      // Get current features and append the new segment
+      const currentData = source.serialize().data;
+      let features = [];
+      
+      if (currentData && currentData.features) {
+        features = [...currentData.features];
+      }
+      
+      features.push(segmentFeature);
+      
+      // Update source with the appended data
+      source.setData({
+        type: 'FeatureCollection',
+        features: features
+      });
+      
+      console.log('Source incrementally updated with new segment');
+    } else {
+      // If source doesn't exist yet, do a full update
+      updateTracklogDisplay();
+    }
+    
+    if (fullSource) {
+      // Do the same for the full source
+      const currentData = fullSource.serialize().data;
+      let features = [];
+      
+      if (currentData && currentData.features) {
+        features = [...currentData.features];
+      }
+      
+      features.push(segmentFeature);
+      
+      // Update source with the appended data
+      fullSource.setData({
+        type: 'FeatureCollection',
+        features: features
+      });
+      
+      console.log('Full source incrementally updated with new segment');
+    } else {
+      // If full source doesn't exist yet, create it
+      createSingleLineFeature();
+    }
+  } catch (error) {
+    console.error('Error incrementally updating tracklog:', error);
+    // Fall back to full update on error
+    updateTracklogDisplay();
+  }
+}
+
+// Create a segment feature from two points
+function createSegmentFeature(startPoint, endPoint) {
+  // Skip invalid coordinates
+  if (!startPoint.coordinates || !endPoint.coordinates) {
+    console.warn('Invalid coordinates in segment');
+    return null;
+  }
+  
+  // Skip zero-length segments
+  const isSamePoint = 
+    startPoint.coordinates[0] === endPoint.coordinates[0] && 
+    startPoint.coordinates[1] === endPoint.coordinates[1];
+  
+  if (isSamePoint) {
+    console.warn('Same start and end point in segment');
+    return null;
+  }
+  
+  // Use pre-calculated vertical speed if available, otherwise calculate it
+  let verticalSpeed;
+  if (typeof endPoint.verticalSpeed !== 'undefined') {
+    verticalSpeed = endPoint.verticalSpeed;
+  } else {
+    // Calculate vertical speed in m/s
+    const timeDiff = (endPoint.timestamp - startPoint.timestamp) / 1000; // seconds
+    if (timeDiff < 0.1) {
+      console.warn('Time difference too small for segment');
+      return null;
+    }
+    
+    const altDiff = (endPoint.altitude || 0) - (startPoint.altitude || 0); // meters
+    verticalSpeed = altDiff / timeDiff; // m/s
+  }
+  
+  // Create a line segment with vertical speed property
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      coordinates: [startPoint.coordinates, endPoint.coordinates]
+    },
+    properties: {
+      verticalSpeed: verticalSpeed
+    }
+  };
 }
 
 // Check and reset tracklog for a new day
@@ -639,7 +778,7 @@ function updateTracklogDisplay() {
     return;
   }
   
-  console.log(`Updating tracklog display with ${tracklog.length} points`);
+  console.log(`Full update: Updating tracklog display with ${tracklog.length} points`);
   
   // Create individual line segments
   const features = [];
@@ -648,44 +787,10 @@ function updateTracklogDisplay() {
     const startPoint = tracklog[i-1];
     const endPoint = tracklog[i];
     
-    // Skip invalid coordinates
-    if (!startPoint.coordinates || !endPoint.coordinates) {
-      console.warn(`Skipping segment ${i}: Invalid coordinates`);
-      continue;
+    const segmentFeature = createSegmentFeature(startPoint, endPoint);
+    if (segmentFeature) {
+      features.push(segmentFeature);
     }
-    
-    // Skip zero-length segments
-    const isSamePoint = 
-      startPoint.coordinates[0] === endPoint.coordinates[0] && 
-      startPoint.coordinates[1] === endPoint.coordinates[1];
-    
-    if (isSamePoint) {
-      console.warn(`Skipping segment ${i}: Same start and end point`);
-      continue;
-    }
-    
-    // Calculate vertical speed in m/s
-    const timeDiff = (endPoint.timestamp - startPoint.timestamp) / 1000; // seconds
-    if (timeDiff < 0.1) {
-      console.warn(`Skipping segment ${i}: Time difference too small (${timeDiff}s)`);
-      continue;
-    }
-    
-    const altDiff = (endPoint.altitude || 0) - (startPoint.altitude || 0); // meters
-    const verticalSpeed = altDiff / timeDiff; // m/s
-    
-    // Create a line segment with vertical speed property
-    features.push({
-      type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: [startPoint.coordinates, endPoint.coordinates]
-      },
-      properties: {
-        segmentIndex: i,
-        verticalSpeed: verticalSpeed
-      }
-    });
   }
   
   if (features.length === 0) {
@@ -719,44 +824,11 @@ function updateTracklogDisplay() {
     // Update the single line feature if it exists
     const fullSource = map.getSource('tracklog-full-source');
     if (fullSource) {
-      // Calculate vertical speeds for each segment
-      const gradientFeatures = [];
-      for (let i = 1; i < tracklog.length; i++) {
-        const startPoint = tracklog[i-1];
-        const endPoint = tracklog[i];
-        
-        // Skip invalid coordinates
-        if (!startPoint.coordinates || !endPoint.coordinates) {
-          continue;
-        }
-        
-        // Calculate vertical speed in m/s
-        const timeDiff = (endPoint.timestamp - startPoint.timestamp) / 1000; // seconds
-        if (timeDiff < 0.1) continue; // Skip invalid time differences
-        
-        const altDiff = (endPoint.altitude || 0) - (startPoint.altitude || 0); // meters
-        const verticalSpeed = altDiff / timeDiff; // m/s
-        
-        // Create a feature for this segment with vertical speed property
-        gradientFeatures.push({
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: [startPoint.coordinates, endPoint.coordinates]
-          },
-          properties: {
-            verticalSpeed: verticalSpeed
-          }
-        });
-      }
-      
-      if (gradientFeatures.length >= 1) {
-        fullSource.setData({
-          type: 'FeatureCollection',
-          features: gradientFeatures
-        });
-        console.log('Gradient line source updated with', gradientFeatures.length, 'segments');
-      }
+      fullSource.setData({
+        type: 'FeatureCollection',
+        features: features
+      });
+      console.log('Gradient line source updated with', features.length, 'segments');
     } else {
       // Create the full line if it doesn't exist yet
       createSingleLineFeature();
