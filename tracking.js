@@ -14,6 +14,9 @@ import {
   setLastRecordedTime
 } from './state.js';
 
+// Track start time
+let trackingStartTime = null;
+
 // Initialize tracking module
 export function initializeTracking() {
   console.log('Initializing tracklog recording...');
@@ -24,11 +27,17 @@ export function initializeTracking() {
   // Create tracklog layer
   createTracklogLayer();
   
+  // Create tracklog info flag
+  createTracklogInfoFlag();
+  
   // Start automatic recording (enabled by default)
   startTracking();
   
   // Set up service worker message handler
   setupServiceWorkerMessageHandler();
+  
+  // Set tracking start time
+  trackingStartTime = Date.now();
 }
 
 // Setup initial tracklog state
@@ -40,6 +49,98 @@ function setupTracklogState() {
   if (!getTracklog()) {
     setTracklog([]);
   }
+}
+
+// Create a flag div to display tracklog information
+function createTracklogInfoFlag() {
+  // Create the flag element
+  const flagDiv = document.createElement('div');
+  flagDiv.id = 'tracklog-info-flag';
+  flagDiv.style.position = 'absolute';
+  flagDiv.style.top = '10px';
+  flagDiv.style.right = '10px';
+  flagDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  flagDiv.style.color = 'white';
+  flagDiv.style.padding = '10px 14px';
+  flagDiv.style.borderRadius = '6px';
+  flagDiv.style.fontSize = '14px';
+  flagDiv.style.zIndex = '1000';
+  flagDiv.style.fontFamily = 'Arial, sans-serif';
+  flagDiv.style.boxShadow = '0 2px 6px rgba(0,0,0,0.5)';
+  flagDiv.style.minWidth = '150px';
+  flagDiv.style.backdropFilter = 'blur(3px)';
+  flagDiv.style.lineHeight = '1.5';
+  flagDiv.textContent = 'Tracklog segments: 0';
+  
+  // Add to the map container
+  const mapContainer = document.getElementById('map');
+  if (mapContainer) {
+    mapContainer.appendChild(flagDiv);
+  }
+  
+  // Set up regular updates for the flag (useful for timestamps even when path doesn't change)
+  setInterval(() => {
+    const tracklog = getTracklog();
+    if (tracklog.length > 0) {
+      updateTracklogInfoFlag(tracklog.length > 1 ? tracklog.length - 1 : 0);
+    }
+  }, 1000);
+}
+
+// Update the tracklog info flag with current info
+function updateTracklogInfoFlag(segmentCount) {
+  const flagDiv = document.getElementById('tracklog-info-flag');
+  if (!flagDiv) return;
+  
+  const tracklog = getTracklog();
+  
+  // If we have at least one point, show altitude info
+  let altitude = 'N/A';
+  let verticalSpeed = 'N/A';
+  
+  if (tracklog.length > 0) {
+    // Get latest point
+    const latestPoint = tracklog[tracklog.length - 1];
+    altitude = latestPoint.altitude ? `${Math.round(latestPoint.altitude)}m` : 'N/A';
+    
+    // Calculate vertical speed if we have at least two points
+    if (tracklog.length > 1) {
+      const prevPoint = tracklog[tracklog.length - 2];
+      const timeDiff = (latestPoint.timestamp - prevPoint.timestamp) / 1000; // seconds
+      const altDiff = latestPoint.altitude - prevPoint.altitude; // meters
+      const vSpeed = altDiff / timeDiff; // m/s
+      
+      // Format vertical speed with sign and rounded to 1 decimal
+      const sign = vSpeed > 0 ? '+' : '';
+      verticalSpeed = `${sign}${vSpeed.toFixed(1)} m/s`;
+    }
+  }
+  
+  // Calculate tracking duration
+  let trackingTime = 'Starting...';
+  if (trackingStartTime) {
+    const durationMs = Date.now() - trackingStartTime;
+    trackingTime = formatDuration(durationMs);
+  }
+  
+  // Create HTML content with data
+  flagDiv.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 4px;">Tracklog Info</div>
+    <div>Duration: ${trackingTime}</div>
+    <div>Segments: ${segmentCount}</div>
+    <div>Altitude: ${altitude}</div>
+    <div>Vertical: ${verticalSpeed}</div>
+  `;
+}
+
+// Format milliseconds into a readable duration string (HH:MM:SS)
+function formatDuration(durationMs) {
+  const seconds = Math.floor(durationMs / 1000) % 60;
+  const minutes = Math.floor(durationMs / (1000 * 60)) % 60;
+  const hours = Math.floor(durationMs / (1000 * 60 * 60));
+  
+  const pad = (num) => num.toString().padStart(2, '0');
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 // Create the tracklog layer on the map
@@ -161,7 +262,10 @@ function checkAndResetDaily() {
 // Update the map with current tracklog data
 function updateTracklogDisplay() {
   const tracklog = getTracklog();
-  if (tracklog.length < 2) return;
+  if (tracklog.length < 2) {
+    updateTracklogInfoFlag(0);
+    return;
+  }
   
   // Create individual line segments
   const features = [];
@@ -196,6 +300,9 @@ function updateTracklogDisplay() {
       features: features
     }
   });
+  
+  // Update the info flag with segment count
+  updateTracklogInfoFlag(features.length);
 }
 
 // Handle position errors
