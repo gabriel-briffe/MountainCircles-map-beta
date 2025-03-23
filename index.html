@@ -13,17 +13,9 @@
     <script>
         // Automatically determine if we're on GitHub Pages or running locally
         function getBasePath() {
-            // Debug information about the current environment
-            console.log('Debug - Location:', {
-                protocol: window.location.protocol,
-                hostname: window.location.hostname,
-                pathname: window.location.pathname,
-                href: window.location.href
-            });
             
             // Check for GitHub Pages project site
             if (window.location.hostname === 'gabriel-briffe.github.io') {
-                console.log('Debug - Detected GitHub Pages site');
                 // Use the exact case for the repository name that matches the URL
                 return '/MountainCircles-map-beta';
             }
@@ -31,24 +23,18 @@
             // Check for repository name in path as fallback
             const pathname = window.location.pathname;
             const pathSegments = pathname.split('/').filter(segment => segment);
-            
-            console.log('Debug - Path segments:', pathSegments);
-            
+                        
             // If path includes our repository name with correct case
             if (pathSegments.length > 0 && pathSegments[0] === 'MountainCircles-map-beta') {
-                console.log('Debug - Detected repository in path');
                 return '/MountainCircles-map-beta';
             }
             
             // Otherwise, we're running locally
-            console.log('Debug - Using local development path');
             return '.';
         }
         
         // Set the base path early and create a base element dynamically
         window.BASE_PATH = getBasePath();
-        console.log('Debug - Final BASE_PATH:', window.BASE_PATH);
-        console.log('Debug - Writing base element with href:', `${window.BASE_PATH}/`);
         document.write(`<base href="${window.BASE_PATH}/">`);
     </script>
     <link href="styles.css" rel="stylesheet" onerror="console.error('Failed to load styles.css')" onload="console.log('Successfully loaded styles.css')"/>
@@ -74,7 +60,7 @@
     </div>
 
     <!-- Transparent Box on Bottom Left with Big Bold Text -->
-    <div id="parametersBox" style="position: absolute; bottom: 10px; left: 10px; z-index: 1; background: rgba(255, 255, 255, 0.5); padding: 10px; border-radius: 5px; font-family: sans-serif; font-weight: bold; font-size: 24px; color: #000;">
+    <div id="parametersBox">
         glide parameters
     </div>
 
@@ -95,16 +81,13 @@
             <input id="polygonOpacitySlider" type="range" min="0" max="0.5" step="0.01" value="0.1">
         </div>
         
-        <!-- New Zoom Buttons replacing the text size buttons -->
-        <button title="Zoom In" id="zoomInBtn">
-            <span class="material-icons-round">zoom_in</span>
-        </button>
-        <button title="Zoom Out" id="zoomOutBtn">
-            <span class="material-icons-round">zoom_out</span>
-        </button>
+        <!-- Zoom buttons will be added dynamically only for desktop devices -->
+        
+        <!-- More Options Button -->
         <button title="More Options" id="moreOptionsBtn">
             <span class="material-icons-round">menu</span>
         </button>
+        
     </div>
 
     <!-- Popup Menu: For controls not requiring constant map visibility -->
@@ -120,7 +103,6 @@
                 <span>Open IGC File</span>
             </button>
             <!-- New App Update section -->
-            <h3>App Update</h3>
             <button id="appUpdateBtn" class="config-button">
                 <span class="material-icons-round">system_update</span>
                 Update App
@@ -154,6 +136,7 @@
             </div>
 
             <h3>Warning</h3>
+            <p>Airspace from openAip and no automatic update so far - will contain mistakes</p>
             <p>This is a new experimental tool. Problems will arise that have not been encountered before in the gliding community.</p>
             <p>I am not sure that 100m above ground is big enough a margin to be safe above the passes.</p>
             <p>Airspace is not taken into account. Downdrafts are not taken into account. Wind is not taken into account.</p>
@@ -167,10 +150,10 @@
     </div>
 
     <!-- Add this right after the opening <body> tag -->
-    <div id="installPrompt" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 8px; z-index: 1000; text-align: center;">
-        <p style="margin: 0 0 10px 0;">Install MountainCircles Map for offline use?</p>
-        <button id="installButton" style="background: #4CAF50; border: none; color: white; padding: 8px 16px; border-radius: 4px; margin-right: 10px;">Install</button>
-        <button id="cancelInstall" style="background: #666; border: none; color: white; padding: 8px 16px; border-radius: 4px;">Not Now</button>
+    <div id="installPrompt">
+        <p>Install MountainCircles Map for offline use?</p>
+        <button id="installButton">Install</button>
+        <button id="cancelInstall">Not Now</button>
     </div>
 
     <script>

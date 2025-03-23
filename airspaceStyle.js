@@ -1,7 +1,6 @@
 import { COLOR_MAPPING } from "./mappings.js";
 import { BASE_PATH } from "./config.js";
 
-// const BASE_PATH = '/MountainCircles-map-beta/test3';
 
 const style = {
     "version": 8,
@@ -43,6 +42,9 @@ const style = {
             "id": "airspace-outline",
             "type": "line",
             "source": "airspace",
+            "layout": {
+                "line-sort-key": ["get", "upperLimitMeters"]
+            },
             paint: {
                 "line-color": [
                     "match",

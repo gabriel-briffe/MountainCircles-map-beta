@@ -14,6 +14,7 @@ import {
     dynamicLineLayerStyle,
     dynamicLabelLayerStyle
 } from "./layerStyles.js";
+import { setupGeolocation } from "./location.js";
 
 import {
     MAP_BOUNDS,
@@ -31,8 +32,13 @@ import {
     initState,
     getMap,
     getLayerManager,
-    getBaseTextSize
+    getBaseTextSize,
+    setLayersToggleState,
+    getGeolocationEnabled
 } from "./state.js";
+
+// Default settings
+const DEFAULT_LAYERS_TOGGLE_STATE = true;
 
 /**
  * Initializes the map and sets up basic layers
@@ -47,6 +53,7 @@ export function initializeMap(containerId, onMapReady) {
         style: style,
         bounds: MAP_BOUNDS,
         maxBounds: MAP_MAX_BOUNDS,
+        doubleClickZoom: false,
         ...MAP_SETTINGS
     });
 
@@ -58,18 +65,13 @@ export function initializeMap(containerId, onMapReady) {
         // Initialize the layer manager
         const layerManagerInstance = new LayerManager(mapInstance);
         
-        // Initialize the state
+        // Initialize the state with only map-related objects
+        // Note: We don't set config here anymore - it's either loaded from localStorage
+        // or already initialized with defaults in state.js
         initState({
             map: mapInstance,
-            layerManager: layerManagerInstance,
-            baseTextSize: DEFAULT_TEXT_SIZE,
-            peaksVisible: DEFAULT_PEAKS_VISIBLE,
-            passesVisible: DEFAULT_PASSES_VISIBLE,
-            currentPolicy: DEFAULT_POLICY,
-            currentConfig: DEFAULT_CONFIG
+            layerManager: layerManagerInstance
         });
-        
-        console.log('Map load event triggered');
         
         // Initialize basic map layers
         await initializeBaseLayers();
@@ -84,7 +86,12 @@ export function initializeMap(containerId, onMapReady) {
         
         // Ensure airspace layers are always on top after all callbacks and layers are added
         mapInstance.once('idle', () => {
-            ensureAirspaceLayersOnTop();
+            getLayerManager().redrawLayersInOrder();
+            
+            // Update the visibility icon to match the current state
+            import('./dock.js').then(module => {
+                module.updateVisibilityIcon();
+            });
         });
     });
 
@@ -106,8 +113,6 @@ async function initializeBaseLayers() {
         data: 'passes.geojson'
     });
     
-    console.log('Added peaks and passes sources');
-
     // Create triangle icons for peaks and passes
     await createMapIcons();
     
@@ -124,7 +129,7 @@ async function initializeBaseLayers() {
     });
 
     // Add location marker layer
-    getLayerManager().addLayerIfNotExists('location-marker-circle', locationMarkerStyle);
+    getLayerManager().addLayerIfNotExists('location-marker-triangle', locationMarkerStyle);
 
     // Add highlight layer for airspace popups
     getLayerManager().addOrUpdateSource('highlight-airspace-source', {
@@ -141,8 +146,10 @@ async function initializeBaseLayers() {
         data: { type: 'FeatureCollection', features: [] }
     });
     
-    // Setup geolocation tracking if available
-    setupGeolocation();
+    // Setup geolocation tracking only if enabled in settings and on mobile device
+    if ((window.APP_CONFIG?.isMobile || isMobileDevice()) && getGeolocationEnabled()) {
+        setupGeolocation();
+    } 
 }
 
 /**
@@ -185,11 +192,10 @@ async function createMapIcons() {
         new Promise(resolve => passImage.onload = resolve)
     ]);
     
-    console.log('Triangle images loaded');
-    getMap().addImage('peak-triangle', peakImage);
-    getMap().addImage('pass-triangle', passImage);
-    console.log('Added triangle images to map');
-
+    const map = getMap();
+    map.addImage('peak-triangle', peakImage);
+    map.addImage('pass-triangle', passImage);
+    
     // Create a copy of the style to update the text-size with the current base text size
     const peaksStyle = { ...peaksSymbolsLayerStyle };
     peaksStyle.layout = { ...peaksSymbolsLayerStyle.layout };
@@ -205,8 +211,6 @@ async function createMapIcons() {
 
     // Add passes layer
     getLayerManager().addLayerIfNotExists('passes-symbols', passesStyle);
-    
-    console.log('Added peaks and passes symbol layers');
 }
 
 /**
@@ -238,9 +242,6 @@ export function createDynamicLayer(id, style, data) {
     // Add the layer to the map
     getLayerManager().addLayerIfNotExists(`dynamic-${id}`, layerStyle);
     
-    // After adding a dynamic layer, ensure airspace layers remain on top
-    ensureAirspaceLayersOnTop();
-    
     return `dynamic-${id}`;
 }
 
@@ -255,53 +256,6 @@ export function createDynamicLineWithLabels(id, lineData) {
     const labelLayerId = createDynamicLayer(`${id}-label`, dynamicLabelLayerStyle, lineData);
     
     return [lineLayerId, labelLayerId];
-}
-
-/**
- * Sets up geolocation tracking if available
- */
-function setupGeolocation() {
-    if ('geolocation' in navigator) {
-        const options = {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 5000
-        };
-        
-        navigator.geolocation.watchPosition(
-            updateLocation,
-            (error) => {
-                console.error('Error getting location:', error);
-            },
-            options
-        );
-    } else {
-        console.warn('Geolocation is not supported by this browser.');
-    }
-}
-
-/**
- * Updates the user's location on the map
- * @param {Object} position - Geolocation position object
- */
-function updateLocation(position) {
-    if (!getLayerManager().hasSource('location-marker')) {
-        console.warn('Location marker source not found');
-        return;
-    }
-    
-    const coords = [position.coords.longitude, position.coords.latitude];
-    
-    getLayerManager().addOrUpdateSource('location-marker', {
-        type: 'geojson',
-        data: {
-            type: 'Feature',
-            geometry: {
-                type: 'Point',
-                coordinates: coords
-            }
-        }
-    });
 }
 
 /**
@@ -332,11 +286,7 @@ function setupUIElements() {
         mapCacheContainer.style.display = 'flex';
     }
     
-    // Hide zoom buttons on all mobile devices regardless of standalone mode
-    if (isMobileDevice()) {
-        document.getElementById('zoomInBtn').style.display = 'none';
-        document.getElementById('zoomOutBtn').style.display = 'none';
-    }
+    // No longer hiding zoom buttons here, as they will now only be created on desktop
     
     // Setup iOS install prompt if needed
     if (isIOS()) {
@@ -351,22 +301,4 @@ function setupUIElements() {
             installPrompt.style.display = 'none';
         });
     }
-}
-
-/**
- * Ensures airspace layers are always on top of other layers
- * This function should be called after all map layers are added
- */
-export function ensureAirspaceLayersOnTop() {
-    const layerManager = getLayerManager();
-    
-    // Move airspace fill and outline layers to the top
-    // This ensures they appear above all other layers
-    layerManager.moveLayerToTop('airspace-outline');
-    layerManager.moveLayerToTop('airspace-fill');
-    
-    // Move highlight layer above airspace layers
-    layerManager.moveLayerToTop('highlight-airspace');
-    
-    console.log('Moved airspace layers to the top of the rendering order');
 } 

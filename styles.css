@@ -1,4 +1,8 @@
 /* Main styles for MountainCircles Map */ 
+
+/* =================================
+   1. CSS VARIABLES / ROOT 
+   ================================= */
 :root {
     /* Light mode colors */
     --bg-light: rgba(255, 255, 255, 0.8);
@@ -47,14 +51,37 @@
     --font-size-large: 18px;
     --font-weight-normal: 400;
     --font-weight-bold: 700;
+    
+    /* Airspace Popup Typography */
+    --airspace-popup-header: 18px;
+    --airspace-popup-content: 16px;
+    --airspace-popup-label: 14px;
+
+    /* Default/maximum sizes for dock elements */
+    --dock-button-size: 48px;
+    --dock-slider-length: 150px;
+
+    /* Parameters Box styling */
+    --parameters-font-size: 24px; /* Default size for parameters box, will be dynamically adjusted */
 }
 
+/* =================================
+   2. GLOBAL STYLES
+   ================================= */
 /* Global font settings */
 html, body {
     margin: 0; 
     padding: 0;
     font-family: var(--font-family);
     font-size: var(--font-size-base);
+    /* Prevent scrolling and bounce effects */
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none; /* Prevent pull-to-refresh and bounce */
+    -webkit-overflow-scrolling: auto; /* Disable iOS momentum scrolling */
+    touch-action: none; /* Disable browser handling of touch gestures */
 }
 
 /* Standard headings */
@@ -74,6 +101,9 @@ h3 {
 
 #map { width: 100%; height: 100vh; }
 
+/* =================================
+   3. MAP CONTROLS
+   ================================= */
 /* Simple style for the basemap switcher */
 #styleSwitcher {
     position: absolute;
@@ -85,6 +115,7 @@ h3 {
     border-radius: 3px;
     box-shadow: 0 1px 4px var(--shadow-light);
 }
+
 /* Container uses flex, aligning items in the center vertically */
 #polygonOpacityControl {
     position: absolute;
@@ -98,6 +129,7 @@ h3 {
     display: flex;
     align-items: center;
 }
+
 /* Make the button a flex container so its content centers */
 #polygonOpacityControl button {
     display: flex;
@@ -110,98 +142,286 @@ h3 {
     cursor: pointer;
     min-height: 24px; /* ensures the button is at least 24px tall */
 }
-/* Force the Material Icons font with !important */
-.material-icons-round {
-    font-family: 'Material Icons Round' !important;
-    font-size: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    color: var(--text-light);
-}
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-    .material-icons-round {
-        color: var(--text-dark);
-    }
-}
 
+/* =================================
+   4. MAP DOCK
+   ================================= */
 /* --------------- MAP DOCK (apple-dock style) --------------- */
 #mapDock {
     position: fixed;
-    left: 10px;
+    left: calc(var(--dock-button-size) * 0.2); /* Proportional to button size instead of fixed 10px */
     top: 50%;
     transform: translateY(-50%);
     display: flex;
     align-items: center;
     flex-direction: column;
     max-height: 100%;
-    flex-wrap: wrap;
-    gap: 10px;
+    flex-wrap: nowrap; /* Prevent wrapping */
+    gap: calc(var(--dock-button-size) * 0.2); /* Scale gap with button size */
     z-index: 1100;
+    /* Allow items to shrink to any size */
+    min-width: 0;
+    min-height: 0;
 }
 
-/* -------------------------- */
-/* Slider Container (Dock Box) */
-/* -------------------------- */
-.dock-slider {
-    width: 48px;       /* Same as other button width */
-    height: 150px;     /* Give enough room for the rotated slider */
+/* Ensure icons can shrink properly */
+#mapDock .material-icons-round {
+    font-size: calc(var(--dock-button-size) * 0.5); /* 50% of button size */
+    height: calc(var(--dock-button-size) * 0.5);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Material icons in the dock should scale with button size */
+#mapDock .material-icons-round {
+    font-size: calc(var(--dock-button-size) * 0.5); /* 50% of button size */
+    height: calc(var(--dock-button-size) * 0.5);
+}
+
+/* Map Dock Buttons: Remove transition and hover effects */
+#mapDock button {
+    background: var(--bg-light);
+    border: none;
+    outline: none;
+    border-radius: var(--border-radius-large);
+    /* Scale padding with button size */
+    padding: calc(var(--dock-button-size) * 0.1);
+    cursor: pointer;
+    transition: none;
+    width: var(--dock-button-size); /* Use variable instead of fixed size */
+    height: var(--dock-button-size); /* Use variable instead of fixed size */
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-light);
-    border-radius: var(--border-radius-large);
-    padding: 8px;
-    box-sizing: border-box;
+    flex: 1; /* Equal flex distribution */
+    max-width: calc(var(--dock-button-size) + var(--dock-button-size) * 0.2); /* Add max-width constraint (button size + proportional padding) */
+    max-height: calc(var(--dock-button-size) + var(--dock-button-size) * 0.2); /* Add max-height constraint (button size + proportional padding) */
+    /* Remove minimum width and height constraints to allow unlimited shrinking */
+    min-width: 0;
+    min-height: 0;
+    aspect-ratio: 1 / 1; /* Ensure all buttons have a square aspect ratio regardless of orientation */
+    box-sizing: border-box; /* Make sure padding is included in the size calculation */
 }
 
-/* Slider styling remains the same in landscape mode */
-#polygonOpacitySlider {
-    width: 150px;  /* Length of the slider track */
-    -webkit-transform: rotate(-90deg);
-    -ms-transform: rotate(-90deg);
-    transform: rotate(-90deg);
-    -webkit-appearance: none; /* Remove default styling */
-    background: transparent;  /* Needed for custom pseudo-elements */
+#mapDock button:hover {
+    transform: none;
+    background: var(--bg-light);
+}
+
+/* Landscape mode: dock is vertical */
+@media (orientation: landscape) {
+    #mapDock {
+        position: fixed;
+        left: calc(var(--dock-button-size) * 0.2); /* Proportional to button size */
+        top: 0;
+        bottom: 0;
+        height: 100%;
+        width: auto;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        flex-wrap: nowrap; /* Prevent wrapping to multiple columns */
+        justify-content: center;
+        gap: calc(var(--dock-button-size) * 0.2); /* Scale gap with button size */
+        transform: translateX(0);
+    }
+    
+    /* Ensure buttons maintain the same aspect ratio as in portrait mode */
+    #mapDock button {
+        aspect-ratio: 1 / 1; /* Enforce square buttons */
+        width: var(--dock-button-size);
+        height: var(--dock-button-size);
+        box-sizing: border-box; /* Ensure padding is included in size calculation */
+        flex: 1 0 var(--dock-button-size); /* Grow but don't shrink, with dock-button-size as basis */
+    }
 }
 
 /* Portrait mode: dock is horizontal, so the slider must be horizontal */
 @media (orientation: portrait) {
     #mapDock {
         position: fixed;
-        top: 10px;
+        top: calc(var(--dock-button-size) * 0.2); /* Proportional to button size */
         left: 0;
         right: 0;
         width: 100%;
-        padding: 0 0; /* Optional: Add some horizontal spacing */
+        padding: 0;
         display: flex;
         flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center; /* Center items in each row */
-        gap: 10px;
-        transform: translateY(0);
-    }
-    .dock-slider {
-        /* Adjust container to have the same height as other buttons */
-        width: 150px;
-        height: 48px;
-        background: var(--bg-light);
-        border-radius: var(--border-radius-large);
-        padding: 8px;
-        box-sizing: border-box;
-        display: flex;
-        align-items: center;
+        flex-wrap: nowrap; /* Prevent wrapping to multiple lines */
         justify-content: center;
+        gap: calc(var(--dock-button-size) * 0.2); /* Scale gap with button size */
+        transform: translateY(0);
+        overflow-x: auto; /* Allow horizontal scrolling if needed */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE and Edge */
     }
-    /* Force the slider to be horizontal by resetting its rotation */
-    .dock-slider #polygonOpacitySlider {
-        -webkit-transform: rotate(0deg) !important;
-        -ms-transform: rotate(0deg) !important;
-        transform: rotate(0deg) !important;
-        width: 100% !important;
+    
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    #mapDock::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Ensure buttons maintain their square aspect ratio in portrait mode too */
+    #mapDock button {
+        aspect-ratio: 1 / 1; /* Keep buttons square */
+        width: var(--dock-button-size);
+        height: var(--dock-button-size);
+        box-sizing: border-box; /* Include padding in size calculation */
+        flex: 1 0 var(--dock-button-size); /* Grow but don't shrink, with dock-button-size as basis */
+    }
+}
+
+/* =================================
+   5. SLIDER COMPONENTS
+   ================================= */
+/* -------------------------- */
+/* Slider Container (Dock Box) */
+/* -------------------------- */
+.dock-slider {
+    width: var(--dock-button-size); /* Same as button width */
+    height: var(--dock-slider-length); /* Flexible height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-light);
+    border-radius: var(--border-radius-large);
+    /* Scale padding with button size */
+    padding: calc(var(--dock-button-size) * 0.1);
+    box-sizing: border-box;
+    flex: 3; /* Take 3x space of a button */
+    position: relative;
+    max-height: calc(var(--dock-slider-length) + var(--dock-button-size) * 0.2); /* Add max-height constraint (slider length + proportional padding) */
+    /* Allow unlimited shrinking */
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Slider styling for landscape mode (vertical) */
+#polygonOpacitySlider {
+    width: calc(var(--dock-slider-length) - var(--dock-button-size) * 0.2); /* Account for proportional padding */
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: var(--slider-track-light);
+    opacity: 0.9;
+    border-radius: 3px;
+    border: none;
+    outline: none;
+    box-shadow: none;
+}
+
+/* Thumb styling */
+#polygonOpacitySlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: calc(var(--dock-button-size) * 0.4); /* Scale with button size */
+    width: calc(var(--dock-button-size) * 0.4); /* Scale with button size */
+    border-radius: 50%;
+    background: var(--text-light);
+    margin-top: calc(-1 * var(--dock-button-size) * 0.15); /* Adjusted for proper centering without box shadow */
+    cursor: pointer;
+}
+
+#polygonOpacitySlider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--bg-lighter);
+    cursor: pointer;
+    border: none;
+}
+
+/* Portrait mode: dock is horizontal, so the slider must be horizontal */
+@media (orientation: portrait) {
+    #mapDock {
+        position: fixed;
+        top: calc(var(--dock-button-size) * 0.2); /* Proportional to button size */
+        left: 0;
+        right: 0;
+        width: 100%;
+        padding: 0;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap; /* Prevent wrapping to multiple lines */
+        justify-content: center;
+        gap: calc(var(--dock-button-size) * 0.2); /* Scale gap with button size */
+        transform: translateY(0);
+        overflow-x: auto; /* Allow horizontal scrolling if needed */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE and Edge */
+    }
+    
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    #mapDock::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .dock-slider {
+        /* Adjust for horizontal orientation */
+        width: var(--dock-slider-length);
+        height: var(--dock-button-size);
+        flex: 3; /* Take 3x space of a button */
+        max-width: calc(var(--dock-slider-length) + var(--dock-button-size) * 0.2); /* Proportional padding */
+    }
+    
+    #polygonOpacitySlider {
+        transform: none; /* No rotation in portrait mode */
+        width: calc(var(--dock-slider-length) - var(--dock-button-size) * 0.2); /* Proportional padding */
+        position: relative;  /* Reset position for portrait */
+        top: auto;
+        left: auto;
+        margin: 0;  /* Reset margins */
+        z-index: 2; /* Ensure the slider is visible */
+    }
+}
+
+/* Landscape mode: dock is vertical */
+@media (orientation: landscape) {
+    #mapDock {
+        position: fixed;
+        left: calc(var(--dock-button-size) * 0.2); /* Proportional to button size */
+        top: 0;
+        bottom: 0;
+        height: 100%;
+        width: auto;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        flex-wrap: nowrap; /* Prevent wrapping to multiple columns */
+        justify-content: center;
+        gap: calc(var(--dock-button-size) * 0.2); /* Scale gap with button size */
+        transform: translateX(0);
+    }
+    
+    .dock-slider {
+        /* Adjust for vertical orientation */
+        height: var(--dock-slider-length); /* Must use the length for height */
+        width: var(--dock-button-size); /* Width is button size */
+        flex: 3; /* Take 3x space of a button */
+        /* Allow proportionally smaller padding */
+        padding: calc(var(--dock-button-size) * 0.1);
+    }
+    
+    #polygonOpacitySlider {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-50%) rotate(-90deg); /* Center and rotate */
+        width: calc(var(--dock-slider-length) - var(--dock-button-size) * 0.2); /* Account for proportional padding */
+        margin: 0; /* Reset any margins */
+        z-index: 2; /* Ensure the slider is visible */
+    }
+    
+    /* Special handling for slider and thumb in landscape mode */
+    #polygonOpacitySlider::-webkit-slider-thumb {
+        /* Ensure the thumb appears correctly after rotation */
+        margin-top: calc(-1 * var(--dock-button-size) * 0.15); /* Adjusted for proper centering without box shadow */
+    }
+    
+    /* Override default slider properties to prevent rendering issues */
+    #polygonOpacitySlider {
+        transform-origin: center center;
+        background: var(--slider-track-light);
     }
 }
 
@@ -216,36 +436,40 @@ h3 {
 /* Custom Slider Styling */
 /* ===================== */
 
+/* Custom Slider Track & Thumb Styling */
 /* For Webkit Browsers (Chrome, Safari, Opera) */
 #polygonOpacitySlider::-webkit-slider-runnable-track {
     width: 100%;
-    height: 6px;
+    height: calc(var(--dock-button-size) * 0.1); /* Scale track height with button size */
     background: var(--slider-track-light);
-    border-radius: 3px;
+    border-radius: calc(var(--dock-button-size) * 0.05); /* Half of the track height */
 }
+
 #polygonOpacitySlider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    height: 20px;
-    width: 20px;
+    height: calc(var(--dock-button-size) * 0.4); /* Scale with button size */
+    width: calc(var(--dock-button-size) * 0.4); /* Scale with button size */
     border-radius: 50%;
-    background: var(--bg-light-solid);
-    margin-top: -7px; /* Center the thumb on the track */
+    background: var(--text-light);
+    margin-top: calc(-1 * var(--dock-button-size) * 0.15); /* Adjusted for proper centering without box shadow */
     cursor: pointer;
 }
 
 /* For Firefox */
 #polygonOpacitySlider::-moz-range-track {
     width: 100%;
-    height: 6px;
+    height: calc(var(--dock-button-size) * 0.1); /* Scale track height with button size */
     background: var(--slider-track-light);
-    border-radius: 3px;
+    border-radius: calc(var(--dock-button-size) * 0.05); /* Half of the track height */
 }
+
 #polygonOpacitySlider::-moz-range-thumb {
-    height: 20px;
-    width: 20px;
+    height: calc(var(--dock-button-size) * 0.4); /* Scale with button size */
+    width: calc(var(--dock-button-size) * 0.4); /* Scale with button size */
     border-radius: 50%;
-    background: var(--bg-light-solid);
+    background: var(--text-light);
     cursor: pointer;
+    border: none;
 }
 
 /* For IE */
@@ -256,72 +480,159 @@ h3 {
     border-color: transparent;
     color: transparent;
 }
+
 #polygonOpacitySlider::-ms-fill-lower {
     background: var(--slider-track-light);
     border-radius: 3px;
 }
+
 #polygonOpacitySlider::-ms-fill-upper {
     background: var(--slider-track-light);
     border-radius: 3px;
 }
+
 #polygonOpacitySlider::-ms-thumb {
-    height: 20px;
-    width: 20px;
+    height: calc(var(--dock-button-size) * 0.4); /* Scale with button size */
+    width: calc(var(--dock-button-size) * 0.4); /* Scale with button size */
     border-radius: 50%;
-    background: var(--bg-light-solid);
+    background: var(--text-light);
     cursor: pointer;
+}
+
+/* Slider responsive behavior */
+/* Portrait mode slider adjustments */
+@media (orientation: portrait) {
+    .dock-slider {
+        /* Adjust for horizontal orientation */
+        width: var(--dock-slider-length);
+        height: var(--dock-button-size);
+        flex: 3; /* Take 3x space of a button */
+        max-width: calc(var(--dock-slider-length) + var(--dock-button-size) * 0.2); /* Proportional padding */
+    }
+    
+    #polygonOpacitySlider {
+        transform: none; /* No rotation in portrait mode */
+        width: calc(var(--dock-slider-length) - var(--dock-button-size) * 0.2); /* Proportional padding */
+        position: relative;  /* Reset position for portrait */
+        top: auto;
+        left: auto;
+        margin: 0;  /* Reset margins */
+        z-index: 2; /* Ensure the slider is visible */
+    }
+}
+
+/* Landscape mode slider adjustments */
+@media (orientation: landscape) {
+    .dock-slider {
+        /* Adjust for vertical orientation */
+        height: var(--dock-slider-length); /* Must use the length for height */
+        width: var(--dock-button-size); /* Width is button size */
+        flex: 3; /* Take 3x space of a button */
+        /* Allow proportionally smaller padding */
+        padding: calc(var(--dock-button-size) * 0.1);
+    }
+    
+    #polygonOpacitySlider {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-50%) rotate(-90deg); /* Center and rotate */
+        width: calc(var(--dock-slider-length) - var(--dock-button-size) * 0.2); /* Account for proportional padding */
+        margin: 0; /* Reset any margins */
+        z-index: 2; /* Ensure the slider is visible */
+    }
+    
+    /* Special handling for slider and thumb in landscape mode */
+    #polygonOpacitySlider::-webkit-slider-thumb {
+        /* Ensure the thumb appears correctly after rotation */
+        margin-top: calc(-1 * var(--dock-button-size) * 0.15); /* Adjusted for proper centering without box shadow */
+    }
+    
+    /* Override default slider properties to prevent rendering issues */
+    #polygonOpacitySlider {
+        transform-origin: center center;
+        background: var(--slider-track-light);
+    }
 }
 
 /* Dark mode adjustments: use a darker grey for the slider track */
 @media (prefers-color-scheme: dark) {
     #polygonOpacitySlider::-webkit-slider-runnable-track {
         background: var(--slider-track-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
     }
     #polygonOpacitySlider::-moz-range-track {
         background: var(--slider-track-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
     }
     #polygonOpacitySlider::-ms-fill-lower,
     #polygonOpacitySlider::-ms-fill-upper {
         background: var(--slider-track-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    /* Add dark mode slider thumb color to keep it white */
+    #polygonOpacitySlider::-webkit-slider-thumb {
+        background: var(--text-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    #polygonOpacitySlider::-moz-range-thumb {
+        background: var(--text-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    #polygonOpacitySlider::-ms-thumb {
+        background: var(--text-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    
+    /* Make sure the slider itself doesn't have any outline or border */
+    #polygonOpacitySlider {
+        border: none;
+        outline: none;
+        box-shadow: none;
     }
 }
 
-
-/* Map Dock Buttons: Remove transition and hover effects */
-#mapDock button {
-    background: var(--bg-light);
-    border: none;
-    outline: none;
-    border-radius: var(--border-radius-large);
-    padding: 8px;
-    cursor: pointer;
-    transition: none;  /* Disabled transition for scaling and background changes */
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* =================================
+   7. PARAMETERS BOX
+   ================================= */
+/* Parameters Box styling */
+#parametersBox {
+    position: fixed;
+    bottom: 0px;
+    left: 50%;
+    transform: translateX(-50%); /* Center horizontally */
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.5);
+    padding: 5px; /* Add more horizontal padding */
+    border-radius: 5px;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--parameters-font-size); /* Use the variable instead of hardcoded value */
+    color: var(--text-light);
+    text-align: center;
+    width: auto; /* Allow content to determine width */
+    max-width: 100%; /* Take up to full width minus margin */
+    box-sizing: border-box; /* Include padding in width calculation */
+    white-space: nowrap; /* Keep all text on one line if possible */
+    overflow: hidden; /* Hide overflow if too wide */
+    text-overflow: ellipsis; /* Show ellipsis if text is truncated */
 }
 
-#mapDock button:hover {
-    transform: none;   /* Disable zooming (scaling) */
-    background: var(--bg-light);  /* Keep same background */
-}
-
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-    #mapDock button {
-        background: var(--bg-dark);
-    }
-    #mapDock button:hover {
-        transform: none;   /* Disable zooming in dark mode as well */
-        background: var(--bg-dark);
-    }
-    #mapDock .material-icons-round {
-        color: var(--text-dark);
-    }
-}
-
+/* =================================
+   8. POPUP COMPONENTS
+   ================================= */
 /* --------------- POPUP STYLES (consolidated) --------------- */
 /* Popup Menu (centered on screen) */
 #popupMenu {
@@ -392,10 +703,11 @@ h3 {
     box-shadow: 0 2px 6px var(--shadow-light);
     padding: 0px;
     z-index: 1200; /* Higher than the map dock's z-index (1100) */
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
     display: inline-flex;
     color: var(--text-light); /* Dark text */
+    font-size: var(--airspace-popup-content);
 }
 
 .popup-content {
@@ -405,7 +717,7 @@ h3 {
 }
 
 .popup-section {
-    font-size: var(--font-size-small);
+    font-size: var(--airspace-popup-content);
     border-bottom: 1px solid var(--border-light);
     padding: 8px;
     cursor: pointer;
@@ -424,6 +736,15 @@ h3 {
     background-color: var(--popup-highlight);
 }
 
+.popup-section strong {
+    font-size: var(--airspace-popup-header);
+    display: block;
+    margin-bottom: 5px;
+}
+
+/* =================================
+   9. AIRSPACE VISUALIZATION COMPONENTS
+   ================================= */
 .limits-type-container {
     display: flex;
     align-items: center;
@@ -438,10 +759,12 @@ h3 {
 .upper-limit {
     line-height: 1;
     border-bottom: 1px solid var(--altitude-line);
+    font-size: var(--airspace-popup-content);
 }
 
 .lower-limit {
     line-height: 1;
+    font-size: var(--airspace-popup-content);
 }
 
 .colorBand {
@@ -480,7 +803,7 @@ h3 {
 }
 
 .altitude-label {
-    font-size: var(--font-size-small);
+    font-size: var(--airspace-popup-label);
     line-height: 1;
     font-weight: var(--font-weight-bold);
     padding: 0;
@@ -508,8 +831,739 @@ h3 {
     left: 0;
 }
 
-/* Add to consolidated dark mode section */
+/* =================================
+   10. SPINNER
+   ================================= */
+/* ===== Spinner Styling ===== */
+#spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2000;
+    display: none; /* Hidden by default */
+}
+.spinner {
+    border: 8px solid #f3f3f3; /* Light grey */
+    border-top: 8px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* =================================
+   11. AIRSPACE SIDEBAR
+   ================================= */
+/* Airspace sidebar for type toggles */
+#airspace-sidebar {
+    position: absolute;
+    background-color: var(--bg-light);
+    padding: 15px;
+    border-radius: var(--border-radius-large);
+    box-shadow: 0 2px 10px var(--shadow-light);
+    overflow-y: auto;
+    display: none;
+    z-index: 1300; /* Increased to be above popup-menu (1200) */
+    max-width: 250px;
+    font-weight: var(--font-weight-normal);
+    color: var(--text-light);
+}
+
+#airspace-sidebar h3 {
+    margin-top: 0;
+    color: var(--text-light);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    text-align: center;
+}
+
+#airspace-sidebar label {
+    display: block;
+    margin-bottom: 8px;
+    cursor: pointer;
+    padding: 3px 0;
+    color: var(--text-light);
+}
+
+#airspace-sidebar label:hover {
+    background-color: var(--hover-bg-light);
+}
+
+#airspace-sidebar input[type="checkbox"] {
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Portrait mode positioning (width < height) */
+@media (orientation: portrait) {
+    #airspace-sidebar {
+        top: calc(var(--dock-button-size) * 1.5); /* Positioned below the dock with some additional space */
+        left: 0; /* No margin in portrait mode */
+        bottom: 0px; /* Keep a small margin at the bottom */
+        height: auto; /* Allow height to be determined by top and bottom */
+        max-height: none; /* Remove max-height constraint */
+    }
+}
+
+/* Landscape mode positioning (width >= height) */
+@media (orientation: landscape) {
+    #airspace-sidebar {
+        top: 0px; /* Small margin from the top */
+        bottom: 0px; /* Small margin from the bottom */
+        left: calc(var(--dock-button-size) * 1.5);
+        height: auto; /* Allow height to be determined by top and bottom */
+        max-height: none; /* Remove max-height constraint */
+        transform: none; /* Remove transform since we're using explicit positioning */
+    }
+}
+
+/* =================================
+   12. BUTTON STYLES
+   ================================= */
+/* Common style for configuration buttons */
+.config-button {
+    margin: 5px;
+}
+
+/* Style for layer toggle buttons */
+#peaksToggleBtn, #passesToggleBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#peaksToggleBtn .material-icons-round,
+#passesToggleBtn .material-icons-round {
+    font-size: 20px;
+}
+
+/* Make sure all material icons in buttons are properly aligned */
+button .material-icons-round {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+}
+
+/* Update the CSS for the cache button */
+#cacheCurrentConfigBtn, #cacheBackgroundMapBtn {
+    transition: border 0.3s, box-shadow 0.3s;
+    border: none;
+    box-shadow: none;
+    position: relative; /* Ensure border works correctly */
+    box-sizing: border-box; /* Include border in element size */
+    white-space: normal; /* Allow text to wrap */
+    word-break: break-word; /* Allow words to break if needed */
+    display: inline-flex !important; /* Use flex for alignment */
+    align-items: center !important; /* Center items vertically */
+    gap: 8px; /* Space between icon and text */
+}
+
+/* Style for cached configuration buttons */
+.cached-config {
+    border: 2px solid #4CAF50; /* Green border */
+}
+
+/* Add to your existing CSS */
+#cacheProgress {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.progress-bar-container {
+    width: 80%;
+    margin: 5px 0;
+}
+
+/* Sidebar toggle buttons for peaks and passes */
+.sidebar-toggle-btn {
+    background-color: transparent;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: var(--hover-bg-light);
+}
+
+/* Sidebar config buttons */
+.sidebar-config-btn {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-color: var(--bg-button-light);
+    border: none;
+    border-radius: var(--border-radius-standard);
+    cursor: pointer;
+    font-weight: var(--font-weight-bold);
+    color: var(--text-light);
+    padding: 8px 12px;
+    transition: background-color 0.2s;
+}
+
+.sidebar-config-btn:hover {
+    background-color: var(--bg-button-hover-light);
+}
+
+.sidebar-config-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+/* Apply common button styles to specific button types */
+.config-button,
+.sidebar-config-btn,
+.policy-button,
+.text-size-button,
+#popupMenu #configButtons button,
+#popupMenu button#igcFileButton,
+#peaksToggleBtn, 
+#passesToggleBtn,
+#cacheCurrentConfigBtn,
+#cacheBackgroundMapBtn,
+.sidebar-toggle-btn {
+    /* Common button properties */
+    border: none;
+    border-radius: var(--border-radius-standard);
+    cursor: pointer;
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    transition: background-color 0.2s;
+    white-space: nowrap; /* Default to nowrap for most buttons */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    
+    /* Visual styles */
+    display: inline-block;
+    padding: 8px 12px;
+    background: var(--bg-button-light);
+    color: var(--text-light);
+}
+
+/* Override white-space for cache buttons specifically */
+#cacheCurrentConfigBtn, #cacheBackgroundMapBtn {
+    white-space: normal; /* Allow text to wrap for these specific buttons */
+    word-break: break-word; /* Allow words to break if needed */
+}
+
+/* Button hover states */
+.config-button:hover,
+.sidebar-config-btn:hover,
+#popupMenu #configButtons button:hover,
+#popupMenu button#igcFileButton:hover,
+#peaksToggleBtn:hover, 
+#passesToggleBtn:hover,
+#cacheCurrentConfigBtn:hover,
+#cacheBackgroundMapBtn:hover,
+.sidebar-toggle-btn:hover {
+    background: var(--bg-button-hover-light);
+}
+
 @media (prefers-color-scheme: dark) {
+    .config-button,
+    .sidebar-config-btn,
+    .policy-button,
+    .text-size-button,
+    #popupMenu #configButtons button,
+    #popupMenu button#igcFileButton,
+    #peaksToggleBtn, 
+    #passesToggleBtn,
+    #cacheCurrentConfigBtn,
+    #cacheBackgroundMapBtn,
+    .sidebar-toggle-btn {
+        background: var(--bg-button-dark);
+        color: var(--text-dark);
+    }
+    
+    .config-button:hover,
+    .sidebar-config-btn:hover,
+    #popupMenu #configButtons button:hover,
+    #popupMenu button#igcFileButton:hover,
+    #peaksToggleBtn:hover, 
+    #passesToggleBtn:hover,
+    #cacheCurrentConfigBtn:hover,
+    #cacheBackgroundMapBtn:hover,
+    .sidebar-toggle-btn:hover {
+        background: var(--bg-button-hover-dark);
+    }
+}
+
+/* Allow scrolling on specific elements only */
+#airspace-sidebar, 
+.popup-content, 
+#popupMenu .popup-content {
+    overflow-y: auto;
+    overscroll-behavior: contain; /* Prevent scroll chaining */
+    -webkit-overflow-scrolling: touch; /* Enable smooth scrolling in iOS */
+}
+
+/* Install Prompt */
+#installPrompt {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 15px;
+    border-radius: var(--border-radius-large);
+    z-index: 3000;
+    text-align: center;
+}
+
+#installPrompt p {
+    margin: 0 0 10px 0;
+}
+
+#installPrompt button {
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: var(--border-radius-standard);
+    cursor: pointer;
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+}
+
+#installPrompt #installButton {
+    background: var(--accent-green);
+    margin-right: 10px;
+}
+
+#installPrompt #cancelInstall {
+    background: #666;
+}
+
+#installPrompt #installButton:hover {
+    background: #45a049;
+}
+
+#installPrompt #cancelInstall:hover {
+    background: #555;
+}
+
+/* Material icons in the dock should scale with button size */
+#mapDock .material-icons-round {
+    font-size: calc(var(--dock-button-size) * 0.5); /* 50% of button size */
+    height: calc(var(--dock-button-size) * 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+    /* Override base slider styling in dark mode */
+    #polygonOpacitySlider {
+        background: var(--slider-track-dark);
+        border: none !important; /* Force no border */
+        outline: none !important; /* Force no outline */
+        box-shadow: none !important; /* Force no box shadow */
+    }
+    
+    /* Also apply to the .dock-slider container in dark mode */
+    .dock-slider {
+        background: var(--bg-dark);
+        border: none;
+        outline: none;
+        box-shadow: none;
+    }
+}
+
+/* =================================
+   6. NAVBOX COMPONENTS
+   ================================= */
+.navboxes-enabled .navbox-container {
+    position: fixed;
+    right: 8px; /* Position on right side in landscape */
+    top: 50%;
+    transform: translateY(-50%); /* Center vertically like the dock */
+    display: flex;
+    flex-direction: column; /* Stack vertically in landscape like the dock */
+    gap: 8px;
+    z-index: 1000;
+    padding: 0px;
+    border-radius: var(--border-radius-large);
+    font-family: var(--font-family);
+}
+
+.navboxes-enabled .navbox {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background-color: var(--bg-light);
+    border-radius: var(--border-radius-large);
+    color: var(--text-light);
+    min-width: 60px;
+    box-sizing: border-box;
+    text-align: center;
+    box-shadow: 0 2px 5px var(--shadow-light);
+    /* Remove cursor pointer and transition */
+}
+
+.navboxes-enabled .navbox-value {
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-light);
+}
+
+/* Style for units in navbox values */
+.navboxes-enabled .navbox-value span.unit {
+    font-size: var(--font-size-small); /* Same size as navbox labels */
+    font-weight: var(--font-weight-normal);
+    margin-left: 2px; /* Add space between value and unit */
+}
+
+/* No margin for degree symbol */
+.navboxes-enabled .navbox-value span.unit.degree {
+    margin-left: 0;
+}
+
+.navboxes-enabled .navbox-label {
+    font-size: var(--font-size-small);
+    margin-top: 4px;
+    color: inherit;
+}
+
+/* Warning state - orange border for stale data < 5 seconds */
+.navboxes-enabled .navboxes-warning .navbox,
+.navboxes-enabled .navbox.navbox-warning {
+    border: 2px solid #FF8C00; /* Orange border */
+}
+
+/* Error state - red border for stale data > 5 seconds or permission denied */
+.navboxes-enabled .navboxes-error .navbox,
+.navboxes-enabled .navbox.navbox-error {
+    border: 2px solid #FF0000; /* Red border */
+}
+
+/* Portrait mode for navboxes */
+@media (orientation: portrait) {
+    .navboxes-enabled .navbox-container {
+        right: auto; /* Reset right position */
+        top: auto; /* Reset top position */
+        bottom: 45px; /* Position at bottom in portrait */
+        left: 50%; /* Center horizontally in portrait */
+        transform: translateX(-50%); /* Center horizontally in portrait */
+        flex-direction: row; /* Horizontal layout in portrait */
+        flex-wrap: nowrap; /* Prevent wrapping to multiple lines */
+        width: auto; /* Let content determine width */
+        max-width: 90%; /* Allow some margin on very narrow screens */
+        overflow-x: auto; /* Enable horizontal scrolling if needed */
+        scrollbar-width: none; /* Hide scrollbar in Firefox */
+        -ms-overflow-style: none; /* Hide scrollbar in IE/Edge */
+        padding: 0 4px; /* Add a small horizontal padding */
+    }
+    
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    .navboxes-enabled .navbox-container::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Ensure navboxes don't shrink too much in portrait mode */
+    .navboxes-enabled .navbox {
+        flex: 1 0 auto; /* Don't shrink, grow if space available */
+        min-width: 80px; /* Minimum width to prevent excessive shrinking */
+    }
+}
+
+/* =================================
+   13. TOGGLE SWITCH
+   ================================= */
+/* Mac-style toggle switch */
+.toggle-switch {
+    position: relative;
+    width: 40px;
+    height: 20px;
+    background-color: var(--slider-track-light);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    border: none;
+    outline: none;
+}
+
+.toggle-switch.active {
+    background-color: var(--accent-blue);
+}
+
+.toggle-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background-color: var(--bg-light-solid);
+    border-radius: 50%;
+    transition: transform 0.3s;
+    box-shadow: 0 1px 3px var(--shadow-light);
+}
+
+.toggle-switch.active .toggle-slider {
+    transform: translateX(20px);
+}
+
+/* =================================
+   14. SIDEBAR COMPONENTS
+   ================================= */
+/* Sidebar policy title */
+.sidebar-policy-title {
+    width: 100%;
+    text-align: center;
+    font-weight: var(--font-weight-bold);
+    margin: 5px 0;
+    font-size: var(--font-size-base);
+}
+
+/* Sidebar divider */
+.sidebar-divider {
+    margin: 15px 0;
+    border: none;
+    border-top: 1px solid var(--border-subtle-light);
+}
+
+/* Sidebar section title */
+.sidebar-section-title {
+    width: 100%;
+    text-align: center;
+    font-weight: var(--font-weight-bold);
+    margin: 5px 0 10px 0;
+    font-size: var(--font-size-base);
+}
+
+/* Sidebar header container */
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: none; /* Remove the border that was creating the first divider */
+}
+
+/* Sidebar header title */
+.sidebar-header h2 {
+    margin: 0;
+    color: var(--text-heading-light);
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-bold);
+}
+
+/* Policy buttons container */
+.policy-buttons-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+/* Row container for policy buttons */
+.policy-row-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+/* Policy button */
+.policy-button {
+    flex: 1;
+    min-width: 40px;
+    max-width: none;
+    height: auto;
+    padding: 8px 12px;
+    margin: 0;
+    font-size: var(--font-size-base);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Text size container */
+.text-size-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+/* Text size button */
+.text-size-button {
+    flex: 1;
+    font-size: var(--font-size-base);
+}
+
+/* =================================
+   15. INSTALL PROMPT
+   ================================= */
+/* Install Prompt */
+#installPrompt {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 15px;
+    border-radius: var(--border-radius-large);
+    z-index: 3000;
+    text-align: center;
+}
+
+#installPrompt p {
+    margin: 0 0 10px 0;
+}
+
+#installPrompt button {
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: var(--border-radius-standard);
+    cursor: pointer;
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+}
+
+#installPrompt #installButton {
+    background: var(--accent-green);
+    margin-right: 10px;
+}
+
+#installPrompt #cancelInstall {
+    background: #666;
+}
+
+#installPrompt #installButton:hover {
+    background: #45a049;
+}
+
+#installPrompt #cancelInstall:hover {
+    background: #555;
+}
+
+/* =================================
+   16. DARK MODE STYLES
+   ================================= */
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    /* Global elements */
+    .material-icons-round {
+        color: var(--text-dark);
+    }
+    
+    /* Parameters box */
+    #parametersBox {
+        background: rgba(20, 20, 20, 0.5);
+        color: var(--text-dark);
+    }
+    
+    /* Navboxes */
+    .navboxes-enabled .navbox {
+        background-color: var(--bg-dark);
+        color: var(--text-dark);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+    
+    .navboxes-enabled .navbox-value {
+        color: var(--text-dark);
+    }
+    
+    /* Warning state in dark mode */
+    .navboxes-enabled .navboxes-warning .navbox,
+    .navboxes-enabled .navbox.navbox-warning {
+        border: 2px solid #FFA500; /* Brighter orange for dark mode */
+    }
+    
+    /* Error state in dark mode */
+    .navboxes-enabled .navboxes-error .navbox,
+    .navboxes-enabled .navbox.navbox-error {
+        border: 2px solid #FF6347; /* Tomato red for dark mode */
+    }
+    
+    /* Map Dock and buttons */
+    #mapDock button {
+        background: var(--bg-dark);
+    }
+    #mapDock button:hover {
+        transform: none;   /* Disable zooming in dark mode as well */
+        background: var(--bg-dark);
+    }
+    #mapDock .material-icons-round {
+        color: var(--text-dark);
+    }
+    
+    /* Sliders */
+    .dock-slider {
+        background: var(--bg-dark);
+        border: none;
+        outline: none;
+        box-shadow: none;
+    }
+    
+    /* Slider track and thumb */
+    #polygonOpacitySlider::-webkit-slider-runnable-track {
+        background: var(--slider-track-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    #polygonOpacitySlider::-moz-range-track {
+        background: var(--slider-track-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    #polygonOpacitySlider::-ms-fill-lower,
+    #polygonOpacitySlider::-ms-fill-upper {
+        background: var(--slider-track-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    /* Add dark mode slider thumb color to keep it white */
+    #polygonOpacitySlider::-webkit-slider-thumb {
+        background: var(--text-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    #polygonOpacitySlider::-moz-range-thumb {
+        background: var(--text-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    #polygonOpacitySlider::-ms-thumb {
+        background: var(--text-dark);
+        border: none; /* Remove any default border */
+        outline: none; /* Remove any outline */
+        box-shadow: none; /* Remove any box shadow */
+    }
+    
+    /* Make sure the slider itself doesn't have any outline or border */
+    #polygonOpacitySlider {
+        background: var(--slider-track-dark);
+        border: none !important; /* Force no border */
+        outline: none !important; /* Force no outline */
+        box-shadow: none !important; /* Force no box shadow */
+    }
+    
     /* Main Popup Menu */
     #popupMenu .popup-content {
         background: var(--bg-dark);
@@ -563,49 +1617,8 @@ h3 {
     .altitude-line {
         background: var(--altitude-line) !important;
     }
-}
-
-/* ===== Spinner Styling ===== */
-#spinner {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 2000;
-    display: none; /* Hidden by default */
-}
-.spinner {
-    border: 8px solid #f3f3f3; /* Light grey */
-    border-top: 8px solid #3498db; /* Blue */
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    animation: spin 1s linear infinite;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Common style for configuration buttons */
-.config-button {
-    margin: 5px;
-}
-
-/* Style for layer toggle buttons */
-#peaksToggleBtn, #passesToggleBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#peaksToggleBtn .material-icons-round,
-#passesToggleBtn .material-icons-round {
-    font-size: 20px;
-}
-
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
+    
+    /* Toggle and button styles */
     #peaksToggleBtn, #passesToggleBtn {
         background: rgba(20, 20, 20, 0.8);
         color: #fff;
@@ -613,221 +1626,7 @@ h3 {
     #peaksToggleBtn:hover, #passesToggleBtn:hover {
         background: rgba(20, 20, 20, 1);
     }
-}
-
-/* Update the CSS for the cache button */
-#cacheCurrentConfigBtn {
-    transition: border 0.3s, box-shadow 0.3s;
-    border: none;
-    box-shadow: none;
-    position: relative; /* Ensure border works correctly */
-    box-sizing: border-box; /* Include border in element size */
-}
-
-/* Style for cached configuration buttons */
-.cached-config {
-    border: 2px solid #4CAF50; /* Green border */
-}
-
-/* Add to your existing CSS */
-#cacheProgress {
-    display: none;
-    flex-direction: column;
-    width: 100%;
-    align-items: center;
-    margin-top: 10px;
-}
-
-.progress-bar-container {
-    width: 80%;
-    margin: 5px 0;
-}
-
-/* --------------- AIRSPACE STYLES --------------- */
-/* Airspace sidebar for type toggles */
-#airspace-sidebar {
-    position: absolute;
-    background-color: var(--bg-light);
-    padding: 15px;
-    border-radius: var(--border-radius-large);
-    box-shadow: 0 2px 10px var(--shadow-light);
-    overflow-y: auto;
-    display: none;
-    z-index: 1300; /* Increased to be above popup-menu (1200) */
-    max-width: 250px;
-    font-weight: var(--font-weight-normal);
-    color: var(--text-light);
-}
-
-/* Override font weight for specific elements that need to be bold */
-#airspace-sidebar h3,
-.sidebar-policy-title,
-.sidebar-section-title {
-    /* font-weight already bold in parent */
-}
-
-/* Portrait mode positioning (width < height) */
-@media (orientation: portrait) {
-    #airspace-sidebar {
-        top: 70px;
-        left: 0; /* No margin in portrait mode */
-        max-height: calc(100vh - 70px); /* Full height minus top position */
-    }
-}
-
-/* Landscape mode positioning (width >= height) */
-@media (orientation: landscape) {
-    #airspace-sidebar {
-        top: 50%;
-        transform: translateY(-50%);
-        left: 70px; /* 70px from left to provide space for the dock */
-        max-height: 100%; /* Can use full height in landscape */
-    }
-}
-
-#airspace-sidebar h3 {
-    margin-top: 0;
-    color: var(--text-light);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-bold);
-    text-align: center;
-}
-
-#airspace-sidebar label {
-    display: block;
-    margin-bottom: 8px;
-    cursor: pointer;
-    padding: 3px 0;
-    color: var(--text-light);
-}
-
-#airspace-sidebar label:hover {
-    background-color: var(--hover-bg-light);
-}
-
-#airspace-sidebar input[type="checkbox"] {
-    margin-right: 8px;
-    vertical-align: middle;
-}
-
-/* Sidebar toggle buttons for peaks and passes */
-.sidebar-toggle-btn {
-    background-color: transparent;
-}
-
-.sidebar-toggle-btn:hover {
-    background-color: var(--hover-bg-light);
-}
-
-/* Sidebar config buttons */
-.sidebar-config-btn {
-    flex: 1;
-    min-width: 0;
-    max-width: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    background-color: var(--bg-button-light);
-    border: none;
-    border-radius: var(--border-radius-standard);
-    cursor: pointer;
-    font-weight: var(--font-weight-bold);
-    color: var(--text-light);
-    padding: 8px 12px;
-    transition: background-color 0.2s;
-}
-
-.sidebar-config-btn:hover {
-    background-color: var(--bg-button-hover-light);
-}
-
-.sidebar-config-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: space-between;
-    width: 100%;
-    margin-bottom: 15px;
-}
-
-/* Mac-style toggle switch */
-.toggle-switch {
-    position: relative;
-    width: 40px;
-    height: 20px;
-    background-color: var(--slider-track-light);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    border: none;
-    outline: none;
-}
-
-.toggle-switch.active {
-    background-color: var(--accent-blue);
-}
-
-.toggle-slider {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    background-color: var(--bg-light-solid);
-    border-radius: 50%;
-    transition: transform 0.3s;
-    box-shadow: 0 1px 3px var(--shadow-light);
-}
-
-.toggle-switch.active .toggle-slider {
-    transform: translateX(20px);
-}
-
-/* Sidebar policy title */
-.sidebar-policy-title {
-    width: 100%;
-    text-align: center;
-    font-weight: var(--font-weight-bold);
-    margin: 5px 0;
-    font-size: var(--font-size-base);
-}
-
-/* Sidebar divider */
-.sidebar-divider {
-    margin: 15px 0;
-    border: none;
-    border-top: 1px solid var(--border-subtle-light);
-}
-
-/* Sidebar section title */
-.sidebar-section-title {
-    width: 100%;
-    text-align: center;
-    font-weight: var(--font-weight-bold);
-    margin: 5px 0 10px 0;
-    font-size: var(--font-size-base);
-}
-
-/* Sidebar header container */
-.sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-subtle-light);
-}
-
-/* Sidebar header title */
-.sidebar-header h2 {
-    margin: 0;
-    color: var(--text-heading-light);
-    font-size: var(--font-size-large);
-    font-weight: var(--font-weight-bold);
-}
-
-/* CONSOLIDATED DARK MODE STYLES */
-@media (prefers-color-scheme: dark) {
+    
     /* Airspace sidebar */
     #airspace-sidebar {
         background: var(--bg-dark);
@@ -861,7 +1660,7 @@ h3 {
     }
     
     .sidebar-header {
-        border-bottom: 1px solid var(--border-subtle-dark);
+        border-bottom: none; /* Also remove the border in dark mode */
     }
     
     .sidebar-header h2 {
@@ -885,97 +1684,8 @@ h3 {
     .sidebar-toggle-btn:hover {
         background-color: var(--hover-bg-dark);
     }
-}
-
-/* Policy buttons container */
-.policy-buttons-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 15px;
-    width: 100%;
-}
-
-/* Row container for policy buttons */
-.policy-row-container {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    width: 100%;
-    margin-bottom: 10px;
-}
-
-/* Policy button */
-.policy-button {
-    flex: 1;
-    min-width: 40px;
-    max-width: none;
-    height: auto;
-    padding: 8px 12px;
-    margin: 0;
-    font-size: var(--font-size-base);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Text size container */
-.text-size-container {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 15px;
-    width: 100%;
-}
-
-/* Text size button */
-.text-size-button {
-    flex: 1;
-    font-size: var(--font-size-base);
-}
-
-/* Apply common button styles to specific button types */
-.config-button,
-.sidebar-config-btn,
-.policy-button,
-.text-size-button,
-#popupMenu #configButtons button,
-#popupMenu button#igcFileButton,
-#peaksToggleBtn, 
-#passesToggleBtn,
-#cacheCurrentConfigBtn,
-.sidebar-toggle-btn {
-    /* Common button properties */
-    border: none;
-    border-radius: var(--border-radius-standard);
-    cursor: pointer;
-    font-family: var(--font-family);
-    font-size: var(--font-size-base);
-    transition: background-color 0.2s;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     
-    /* Visual styles */
-    display: inline-block;
-    padding: 8px 12px;
-    background: var(--bg-button-light);
-    color: var(--text-light);
-}
-
-/* Button hover states */
-.config-button:hover,
-.sidebar-config-btn:hover,
-#popupMenu #configButtons button:hover,
-#popupMenu button#igcFileButton:hover,
-#peaksToggleBtn:hover, 
-#passesToggleBtn:hover,
-#cacheCurrentConfigBtn:hover,
-.sidebar-toggle-btn:hover {
-    background: var(--bg-button-hover-light);
-}
-
-@media (prefers-color-scheme: dark) {
+    /* Common buttons */
     .config-button,
     .sidebar-config-btn,
     .policy-button,
@@ -985,6 +1695,7 @@ h3 {
     #peaksToggleBtn, 
     #passesToggleBtn,
     #cacheCurrentConfigBtn,
+    #cacheBackgroundMapBtn,
     .sidebar-toggle-btn {
         background: var(--bg-button-dark);
         color: var(--text-dark);
@@ -997,6 +1708,7 @@ h3 {
     #peaksToggleBtn:hover, 
     #passesToggleBtn:hover,
     #cacheCurrentConfigBtn:hover,
+    #cacheBackgroundMapBtn:hover,
     .sidebar-toggle-btn:hover {
         background: var(--bg-button-hover-dark);
     }

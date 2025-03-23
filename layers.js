@@ -3,7 +3,10 @@ import {
     getMap, 
     getLayerManager, 
     getBaseTextSize,
-    getCurrentConfig
+    getCurrentConfig,
+    getPopup,
+    clearPopup,
+    getLayersToggleState
 } from "./state.js";
 
 import { 
@@ -12,13 +15,17 @@ import {
 } from "./layerStyles.js";
 
 import { updateVisibilityIcon } from "./dock.js";
+import { clearMarker } from "./map.js";
+import { clearHighlight } from "./airspace.js";
+
+// Flag to track if a point was just clicked, to prevent airspace popup from showing
+export let pointClickedFlag = false;
 
 /**
  * Handles click events on map points
  * @param {Object} e - The click event object
  */
 export function handlePointClick(e) {
-    console.log("Point clicked event:", e);
     if (!e.features || !e.features.length) return;
 
     const feature = e.features[0];
@@ -27,22 +34,42 @@ export function handlePointClick(e) {
         return;
     }
 
-    const filePath = getCurrentConfig() + "/" + feature.properties.filename;
-    const dynamicLayerId = 'dynamic-lines-' + getCurrentConfig() + '-' + feature.properties.filename;
-    const dynamicSourceId = dynamicLayerId + '-source';
-    const dynamicLabelId = dynamicLayerId + '-labels';
+    // Check if layers toggle is on (using the independent state variable)
+    const linestringsToggleOn = getLayersToggleState();
+    
+    if (linestringsToggleOn) {
+        // When toggle is on, prevent airspace popup and handle dynamic layers
+        pointClickedFlag = true;
+        
+        // Clear any existing popups or markers
+        clearPopup();
+        clearMarker();
+        clearHighlight();
+        
+        // Reset the flag after a brief delay
+        setTimeout(() => {
+            pointClickedFlag = false;
+        }, 200);
+        
+        const filePath = getCurrentConfig() + "/" + feature.properties.filename;
+        const dynamicLayerId = 'dynamic-lines-' + getCurrentConfig() + '-' + feature.properties.filename;
+        const dynamicSourceId = dynamicLayerId + '-source';
+        const dynamicLabelId = dynamicLayerId + '-labels';
 
-    // Hide all other dynamic layers
-    hideOtherDynamicLayers(dynamicLayerId);
+        // Hide all other dynamic layers
+        hideOtherDynamicLayers(dynamicLayerId);
 
-    if (getLayerManager().hasLayer(dynamicLayerId)) {
-        toggleExistingDynamicLayer(dynamicLayerId, dynamicLabelId);
+        if (getLayerManager().hasLayer(dynamicLayerId)) {
+            toggleExistingDynamicLayer(dynamicLayerId, dynamicLabelId);
+        } else {
+            createNewDynamicLayer(filePath, dynamicLayerId, dynamicSourceId, dynamicLabelId);
+        }
     } else {
-        createNewDynamicLayer(filePath, dynamicLayerId, dynamicSourceId, dynamicLabelId);
+        // When toggle is off, don't set the pointClickedFlag to allow the airspace popup
+        clearPopup();
+        clearMarker();
+        clearHighlight();
     }
-
-    // Ensure important layers are on top
-    ensureLayersOnTop();
 
     // Update visibility icon
     updateVisibilityIcon();
@@ -96,9 +123,7 @@ function createNewDynamicLayer(filePath, dynamicLayerId, dynamicSourceId, dynami
     // Hide main layers
     getLayerManager().setVisibility('linestrings-layer', false);
     getLayerManager().setVisibility('linestrings-labels', false);
-    
-    console.log("Adding dynamic layer for:", filePath);
-    
+        
     // Add source
     getLayerManager().addOrUpdateSource(dynamicSourceId, {
         type: 'geojson',
@@ -123,15 +148,6 @@ function createNewDynamicLayer(filePath, dynamicLayerId, dynamicSourceId, dynami
     // Add layers
     getLayerManager().addLayerIfNotExists(dynamicLayerId, lineStyle);
     getLayerManager().addLayerIfNotExists(dynamicLabelId, labelStyle);
-}
-
-/**
- * Ensures important layers are displayed on top of other layers
- */
-function ensureLayersOnTop() {
-    getLayerManager().moveLayerToTop('passes-symbols');
-    getLayerManager().moveLayerToTop('peaks-symbols');
-    getLayerManager().moveLayerToTop('location-marker-circle');
 }
 
 /**

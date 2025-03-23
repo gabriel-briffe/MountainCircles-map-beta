@@ -5,7 +5,6 @@
 
 // Import from config
 import {
-    COLOR_MAPPING,
     AIRSPACE_TYPE_ORDER,
     POLICIES,
     CACHE_NAME,
@@ -19,22 +18,40 @@ import {
     getBaseTextSize,
     getPeaksVisible,
     getPassesVisible,
-    getPopupMarker,
     getCurrentConfig,
-    getPopup,
     setPeaksVisible,
     setPassesVisible,
     setBaseTextSize,
     setCurrentConfig,
     setCurrentPolicy,
-    clearPopup
+    clearPopup,
+    getCurrentPolicy,
+    getPolygonOpacity,
+    getEnabledAirspaceTypes,
+    setEnabledAirspaceTypes,
+    saveStateToLocalStorage,
+    getAirspaceVisible,
+    setAirspaceVisible,
+    getLayersToggleState,
+    getGeolocationEnabled,
+    setGeolocationEnabled,
+    getNavboxesEnabled,
+    setNavboxesEnabled
 } from "./state.js";
+
+// Import from utils
+import { isMobileDevice } from "./utils.js";
 
 // Import from airspace module
 import {
     clearHighlight,
     triggerPopupRefresh
 } from "./airspace.js";
+
+// Import from map module
+import {
+    clearMarker
+} from "./map.js";
 
 // Import layer styles
 import { 
@@ -46,12 +63,19 @@ import {
     pointLabelsLayerStyle
 } from "./layerStyles.js";
 
-// Import necessary functions from mapInitializer
+// Import from location module
 import {
-    createDynamicLayer,
-    createDynamicLineWithLabels,
-    ensureAirspaceLayersOnTop
-} from "./mapInitializer.js";
+    setupGeolocation,
+    stopGeolocation
+} from "./location.js";
+
+// Import from navboxManager module
+import {
+    updateNavboxesState
+} from "./navboxManager.js";
+
+import { toggleGeolocation, toggleNavboxes, initToggleManager, updateToggleStates, toggleGeolocationVisibility } from "./toggleManager.js";
+
 
 /**
  * Creates a checkbox option with label for the sidebar
@@ -98,29 +122,46 @@ export function createTypeCheckboxes(features) {
     // Clear existing content
     sidebar.innerHTML = '';
     
-    // Create header
+    // Create a nice header with toggle and title
     createSidebarHeader(sidebar);
     
-    // Add airspace type checkboxes (removed divider)
-    addAirspaceTypeCheckboxes(sidebar, features);
-    
-    // Add divider
+    // Add a divider
     addSidebarDivider(sidebar);
     
-    // Add peaks/passes toggle
+    // Add airspace type checkboxes
+    addAirspaceTypeCheckboxes(sidebar, features);
+    
+    // Add a divider
+    addSidebarDivider(sidebar);
+    
+    // Add peaks and passes toggles
     addPeaksPassesToggle(sidebar);
     
-    // Add divider
+    // Add geolocation toggle and navboxes toggle only on mobile devices
+    if (isMobileDevice()) {
+        // Add a divider
+        addSidebarDivider(sidebar);
+        
+        // Add geolocation toggle
+        addLocationToggle(sidebar);
+    }
+    
+    // Add a divider
     addSidebarDivider(sidebar);
     
     // Add policy/config buttons
     addPolicyConfigButtons(sidebar);
     
-    // Add divider
+    // Add a divider
     addSidebarDivider(sidebar);
     
-    // Add text size controls
+    // Add text size controls at the bottom
     addTextSizeControls(sidebar);
+    
+    // Apply initial state for geolocation if on mobile
+    if (isMobileDevice()) {
+        toggleGeolocationVisibility(getGeolocationEnabled());
+    }
 }
 
 /**
@@ -148,7 +189,7 @@ export function createSidebarHeader(sidebar) {
     
     // Create Mac-style toggle switch
     const toggleSwitch = document.createElement('div');
-    toggleSwitch.className = 'toggle-switch active';
+    toggleSwitch.className = `toggle-switch ${getAirspaceVisible() ? 'active' : ''}`;
     toggleSwitch.id = 'airspace-master-toggle';
     
     // Add the slider inside the toggle
@@ -158,8 +199,8 @@ export function createSidebarHeader(sidebar) {
     
     // Add click event listener to toggle visibility
     toggleSwitch.addEventListener('click', () => {
-        toggleSwitch.classList.toggle('active');
-        toggleAirspaceVisibility(toggleSwitch.classList.contains('active'));
+        const newState = !toggleSwitch.classList.contains('active');
+        toggleAirspaceVisibility(newState);
     });
     
     toggleContainer.appendChild(toggleSwitch);
@@ -184,11 +225,25 @@ export function toggleAirspaceVisibility(isVisible) {
         cb.disabled = !isVisible;
     });
     
-    // If hiding airspace, clear any popup
+    // If hiding airspace, clear any popup and marker
     if (!isVisible) {
         clearPopup();
         clearHighlight();
+        clearMarker();
     }
+    
+    // Update UI toggle
+    const toggleSwitch = document.getElementById('airspace-master-toggle');
+    if (toggleSwitch) {
+        if (isVisible) {
+            toggleSwitch.classList.add('active');
+        } else {
+            toggleSwitch.classList.remove('active');
+        }
+    }
+    
+    // Save state
+    setAirspaceVisible(isVisible);
 }
 
 /**
@@ -213,6 +268,9 @@ export function addAirspaceTypeCheckboxes(sidebar, features) {
         return indexA - indexB;
     });
     
+    // Get saved enabled types if available
+    const savedEnabledTypes = getEnabledAirspaceTypes();
+    
     // Create container for checkboxes
     const checkboxContainer = document.createElement('div');
     checkboxContainer.className = 'checkbox-container';
@@ -220,11 +278,19 @@ export function addAirspaceTypeCheckboxes(sidebar, features) {
     // Add checkbox for each type using the factory function
     sortedTypes.forEach(type => {
         const id = `toggle-${type.replace(/\s+/g, '-')}`;
-        const checkbox = createOptionCheckbox(id, type, true, updateAirspaceFilter);
+        // Use saved state if available, otherwise default to true
+        const isChecked = savedEnabledTypes ? savedEnabledTypes.has(type) : true;
+        const checkbox = createOptionCheckbox(id, type, isChecked, updateAirspaceFilter);
         checkboxContainer.appendChild(checkbox);
     });
     
     sidebar.appendChild(checkboxContainer);
+    
+    // Initialize the airspace filter based on current checkbox states
+    updateAirspaceFilter();
+    
+    // Set initial airspace visibility based on state
+    toggleAirspaceVisibility(getAirspaceVisible());
 }
 
 /**
@@ -256,6 +322,7 @@ export function addPeaksPassesToggle(sidebar) {
         (e) => {
             setPeaksVisible(e.target.checked);
             getLayerManager().setVisibility('peaks-symbols', e.target.checked);
+            saveStateToLocalStorage().catch(err => console.error('Error saving state:', err));
         }
     );
     checkboxContainer.appendChild(peaksCheckbox);
@@ -268,6 +335,7 @@ export function addPeaksPassesToggle(sidebar) {
         (e) => {
             setPassesVisible(e.target.checked);
             getLayerManager().setVisibility('passes-symbols', e.target.checked);
+            saveStateToLocalStorage().catch(err => console.error('Error saving state:', err));
         }
     );
     checkboxContainer.appendChild(passesCheckbox);
@@ -325,12 +393,25 @@ export function addConfigButton(container, policy, config) {
     const fullConfig = policy + '/' + config;
     btn.setAttribute('data-config', fullConfig);
     
+    // Check if this is the current configuration and apply styles if needed
+    if (fullConfig === getCurrentConfig()) {
+        btn.style.backgroundColor = '#4a90e2';
+        btn.style.color = 'white';
+    }
+    
     btn.onclick = async () => {
-        switchConfig(fullConfig);
-        console.log("Switched to configuration: " + fullConfig);
+        // Reset all config buttons first
+        document.querySelectorAll('.sidebar-config-btn').forEach(button => {
+            button.style.backgroundColor = '';
+            button.style.color = '';
+        });
         
-        // Update cache indicator for sidebar buttons
-        await updateSidebarConfigButtonStyles();
+        // Apply active style to clicked button immediately
+        btn.style.backgroundColor = '#4a90e2';
+        btn.style.color = 'white';
+        
+        // Switch configuration
+        switchConfig(fullConfig);
     };
     
     container.appendChild(btn);
@@ -378,10 +459,13 @@ export function addTextSizeControls(sidebar) {
  * Updates the airspace filter based on checkbox state
  */
 export function updateAirspaceFilter() {
-    const checkboxes = document.querySelectorAll('#airspace-sidebar input[type="checkbox"]');
+    const checkboxes = document.querySelectorAll('#airspace-sidebar input[type="checkbox"][id^="toggle-"]');
     const enabledTypes = Array.from(checkboxes)
         .filter(cb => cb.checked)
         .map(cb => cb.id.replace('toggle-', '').replace(/-/g, ' '));
+    
+    // Save enabled types to state and to Cache API
+    setEnabledAirspaceTypes(enabledTypes);
     
     const filter = ['in', ['get', 'type'], ['literal', enabledTypes]];
     getLayerManager().setFilter('airspace-fill', filter);
@@ -405,6 +489,7 @@ export function updateAirspaceFilter() {
  */
 export async function updateSidebarConfigButtonStyles() {
     const buttons = document.querySelectorAll('.sidebar-config-btn');
+    const currentConfig = getCurrentConfig();
     
     try {
         const cacheCheckPromises = [];
@@ -414,7 +499,7 @@ export async function updateSidebarConfigButtonStyles() {
             const buttonConfig = button.getAttribute('data-config');
             if (buttonConfig) {
                 const promise = isConfigCached(buttonConfig).then(isCached => {
-                    return { button, isCached };
+                    return { button, isCached, isActive: buttonConfig === currentConfig };
                 });
                 cacheCheckPromises.push(promise);
             }
@@ -424,8 +509,18 @@ export async function updateSidebarConfigButtonStyles() {
         const results = await Promise.all(cacheCheckPromises);
         
         // Update button styles based on results
-        results.forEach(({ button, isCached }) => {
+        results.forEach(({ button, isCached, isActive }) => {
+            // Always maintain the green border for cached configs
             button.style.border = isCached ? '2px solid #4CAF50' : 'none';
+            
+            // Set blue background for active config
+            if (isActive) {
+                button.style.backgroundColor = '#4a90e2'; // Blue color to match other UI elements
+                button.style.color = 'white';             // White text for better contrast
+            } else {
+                button.style.backgroundColor = '';        // Reset to default
+                button.style.color = '';                  // Reset to default
+            }
         });
     } catch (error) {
         console.error('Error updating sidebar config button styles:', error);
@@ -476,19 +571,38 @@ export function updateAllLabelSizes() {
  * @param {string} cfg - The configuration to switch to
  */
 export function switchConfig(cfg) {
+    // Clear any existing dynamic layers first
     removeDynamicLayers();
     removeGeoJSONLayers();
+    
+    // Update the parameters box with new config
     updateParametersBox(cfg.split('/')[1]);
+    
+    // Update the state with new config values
     setCurrentConfig(cfg);
     setCurrentPolicy(cfg.split('/')[0]);
+    
+    // Save state to persist the configuration change
+    saveStateToLocalStorage().catch(err => console.error('Error saving config state:', err));
+    
+    // Add the new GeoJSON layers
     addGeoJSONLayers();
     
+    // Get current toggle states for applying visibility
+    const linestringsToggleState = getLayersToggleState();
+    // Apply linestring layer visibility based on toggle state
+    getLayerManager().setVisibility('linestrings-layer', linestringsToggleState);
+    getLayerManager().setVisibility('linestrings-labels', linestringsToggleState);
+    
+    // Apply other layer visibilities from state
     getLayerManager().setVisibility('peaks-symbols', getPeaksVisible());
     getLayerManager().setVisibility('passes-symbols', getPassesVisible());
     
-    getLayerManager().moveLayerToTop('passes-symbols');
-    getLayerManager().moveLayerToTop('peaks-symbols');
-    getLayerManager().moveLayerToTop('location-marker-circle');
+    // Apply polygon opacity from state
+    getLayerManager().setPaintProperty('polygons-layer', 'fill-opacity', getPolygonOpacity());
+    
+    // Ensure proper drawing order
+    getLayerManager().redrawLayersInOrder();
     
     // Update cache indicators for sidebar config buttons
     updateSidebarConfigButtonStyles();
@@ -529,15 +643,216 @@ export function removeGeoJSONLayers() {
  * @param {string} cfg - The configuration string
  */
 export function updateParametersBox(cfg) {
-    console.log("updateParametersBox called with:", cfg);
     const configOnly = cfg.split('/')[1] || cfg;
     const parts = configOnly.split('-');
-    console.log("parts after split:", parts);
     if (parts.length >= 3) {
         const labelText = "L/D " + parts[0] + "-ground " + parts[1] + "m-circuit " + parts[2] + "m";
-        console.log("setting label to:", labelText);
-        document.getElementById('parametersBox').textContent = labelText;
+        const parametersBox = document.getElementById('parametersBox');
+        
+        // Check if text content has changed
+        const contentChanged = parametersBox.textContent !== labelText;
+        parametersBox.textContent = labelText;
+        
+        // If content changed, we need to clear the cache and recalculate
+        if (contentChanged) {
+            clearFontSizeCache();
+        }
+        
+        // After updating text, adjust font size to fit
+        adjustParametersFontSize();
     }
+}
+
+// Cache for font sizes by dimensions
+const fontSizeCache = loadFontSizeCache();
+
+/**
+ * Gets cached font size for specific window dimensions
+ * @param {string} dimensionKey - String key in format "widthxheight"
+ * @returns {number|null} - Cached font size or null if not found
+ */
+function getFontSizeForDimensions(dimensionKey) {
+    return fontSizeCache[dimensionKey] || null;
+}
+
+/**
+ * Saves font size for specific window dimensions
+ * @param {string} dimensionKey - String key in format "widthxheight"
+ * @param {number} fontSize - Font size to cache
+ */
+function saveFontSizeForDimensions(dimensionKey, fontSize) {
+    fontSizeCache[dimensionKey] = fontSize;
+    
+    // Persist the updated cache to localStorage
+    persistFontSizeCache();
+}
+
+/**
+ * Loads the font size cache from localStorage
+ * @returns {Object} The loaded cache or an empty object
+ */
+function loadFontSizeCache() {
+    try {
+        const cachedData = localStorage.getItem('parametersFontSizeCache');
+        return cachedData ? JSON.parse(cachedData) : {};
+    } catch (error) {
+        console.warn('Error loading font size cache:', error);
+        return {};
+    }
+}
+
+/**
+ * Persists the font size cache to localStorage
+ */
+function persistFontSizeCache() {
+    try {
+        localStorage.setItem('parametersFontSizeCache', JSON.stringify(fontSizeCache));
+    } catch (error) {
+        console.warn('Error persisting font size cache:', error);
+    }
+}
+
+/**
+ * Clears the font size cache
+ */
+function clearFontSizeCache() {
+    for (const key in fontSizeCache) {
+        delete fontSizeCache[key];
+    }
+    // Also clear from localStorage
+    try {
+        localStorage.removeItem('parametersFontSizeCache');
+    } catch (error) {
+        console.warn('Error removing font size cache from localStorage:', error);
+    }
+    console.log('Font size cache cleared due to content change');
+}
+
+/**
+ * Adjusts the font size of the parameters box to ensure text fits
+ * without overflowing or being truncated
+ */
+export function adjustParametersFontSize() {
+    const parametersBox = document.getElementById('parametersBox');
+    if (!parametersBox) return;
+    
+    // Get current dimensions
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+    const dimensionKey = `${currentWidth}x${currentHeight}`;
+    
+    // Check if we already have a cached font size for these dimensions
+    const cachedFontSize = getFontSizeForDimensions(dimensionKey);
+    if (cachedFontSize) {
+        // Use cached value if available
+        document.documentElement.style.setProperty('--parameters-font-size', cachedFontSize + 'px');
+        console.log(`Using cached font size ${cachedFontSize}px for dimensions ${dimensionKey}`);
+        return;
+    }
+    
+    // Store the original text content
+    const text = parametersBox.textContent;
+    
+    // Create a temporary span to measure text width
+    const tempSpan = document.createElement('span');
+    tempSpan.style.visibility = 'hidden';
+    tempSpan.style.position = 'absolute';
+    tempSpan.style.whiteSpace = 'nowrap';
+    tempSpan.style.fontFamily = getComputedStyle(parametersBox).fontFamily;
+    tempSpan.style.fontWeight = getComputedStyle(parametersBox).fontWeight;
+    tempSpan.textContent = text;
+    document.body.appendChild(tempSpan);
+    
+    // Use the full window width directly - allow the box to take 100% width on small screens
+    const availableWidth = window.innerWidth-10;
+    
+    // Get current font size from CSS variable or use 24px as default
+    let fontSize = parseFloat(getComputedStyle(document.documentElement)
+        .getPropertyValue('--parameters-font-size')) || 24;
+    
+    tempSpan.style.fontSize = fontSize + 'px';
+    
+    // If content is too wide, reduce font size until it fits
+    while (tempSpan.offsetWidth > availableWidth && fontSize > 0) {
+        fontSize -= 0.5; // Decrease by 0.5px each iteration for smooth scaling
+        tempSpan.style.fontSize = fontSize + 'px';
+    }
+    
+    // If content is much narrower than the available width, try increasing font size
+    // but don't exceed the default maximum of 24px
+    while (tempSpan.offsetWidth < availableWidth && fontSize < 24) {
+        fontSize += 0.5;
+        tempSpan.style.fontSize = fontSize + 'px';
+        
+        // Stop increasing if we would exceed the available width
+        if (tempSpan.offsetWidth > availableWidth) {
+            fontSize -= 0.5; // Go back to the last size that fit
+            break;
+        }
+    }
+    
+    // Remove the temporary element
+    document.body.removeChild(tempSpan);
+    
+    // Apply the calculated font size
+    document.documentElement.style.setProperty('--parameters-font-size', fontSize + 'px');
+    
+    // Cache the calculated font size for these dimensions
+    saveFontSizeForDimensions(dimensionKey, fontSize);
+    
+    console.log(`Parameters box font size calculated and cached: ${fontSize}px for dimensions ${dimensionKey}`);
+}
+
+// Add orientation change listener to adjust font size
+window.addEventListener('orientationchange', () => {
+    // Use setTimeout to ensure the new dimensions are available after orientation change
+    setTimeout(() => {
+        // Check if we have a cached value for the new dimensions
+        const currentWidth = window.innerWidth;
+        const currentHeight = window.innerHeight;
+        const dimensionKey = `${currentWidth}x${currentHeight}`;
+        
+        // Apply cached value if available, otherwise recalculate
+        if (fontSizeCache[dimensionKey]) {
+            console.log(`Orientation changed to dimensions ${dimensionKey}, using cached value: ${fontSizeCache[dimensionKey]}px`);
+            document.documentElement.style.setProperty('--parameters-font-size', fontSizeCache[dimensionKey] + 'px');
+        } else {
+            console.log(`Orientation changed to dimensions ${dimensionKey}, calculating new font size`);
+            adjustParametersFontSize();
+        }
+    }, 150);
+});
+
+// Add window resize listener to adjust font size when screen size changes
+// This is mostly for desktop browsers - on mobile, orientation change is the main trigger
+window.addEventListener('resize', debounce(() => {
+    // Check if dimensions have changed since last calculation
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+    const dimensionKey = `${currentWidth}x${currentHeight}`;
+    
+    // Only recalculate if we don't have a cached value for these dimensions
+    if (!fontSizeCache[dimensionKey]) {
+        console.log(`Resize detected, dimensions ${dimensionKey} not in cache. Recalculating.`);
+        adjustParametersFontSize();
+    } else {
+        console.log(`Resize detected, but dimensions ${dimensionKey} already in cache. Skipping recalculation.`);
+    }
+}, 150));
+
+/**
+ * Debounce function to limit how often a function is called
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - The debounce wait time in milliseconds
+ * @return {Function} - The debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+    };
 }
 
 /**
@@ -555,9 +870,6 @@ export function addGeoJSONLayers() {
     addPolygonLayer();
     addLineStringLayers();
     addPointLayers();
-    
-    // Ensure airspace layers are on top of all other layers
-    ensureAirspaceLayersOnTop();
 }
 
 /**
@@ -601,6 +913,13 @@ export function addLineStringLayers() {
     
     // Add linestrings labels layer if it doesn't exist
     getLayerManager().addLayerIfNotExists('linestrings-labels', labelsStyle);
+    
+    // Set initial visibility based on toggle state
+    // NOTE: This is handled in switchConfig, but we include it here for cases
+    // where addLineStringLayers is called directly without going through switchConfig
+    const linestringsToggleState = getLayersToggleState();
+    getLayerManager().setVisibility('linestrings-layer', linestringsToggleState);
+    getLayerManager().setVisibility('linestrings-labels', linestringsToggleState);
 }
 
 /**
@@ -630,6 +949,132 @@ export function toggleSidebar() {
     const currentDisplay = sidebar.style.display || 'none';
     sidebar.style.display = currentDisplay === 'none' ? 'block' : 'none';
     document.getElementById('sidebarVisibilityIcon').textContent = 'layers';
+}
+
+/**
+ * Adds location tracking toggle to the sidebar
+ * @param {HTMLElement} sidebar - The sidebar element
+ */
+export function addLocationToggle(sidebar) {
+    // Only add location tracking on mobile devices
+    if (!isMobileDevice()) {
+        return;
+    }
+    
+    // Create toggle container
+    const toggleContainer = document.createElement('div');
+    toggleContainer.className = 'toggle-container';
+    toggleContainer.style.display = 'flex';
+    toggleContainer.style.justifyContent = 'space-between';
+    toggleContainer.style.alignItems = 'center';
+    toggleContainer.style.padding = '5px 0';
+    
+    // Create label
+    const label = document.createElement('span');
+    label.textContent = 'Location Tracking';
+    label.style.marginRight = '10px';
+    
+    // Get current state from settings (might have been updated during load)
+    const isEnabled = getGeolocationEnabled();
+    
+    // Create toggle switch (default to the current state)
+    const toggleSwitch = document.createElement('button');
+    toggleSwitch.className = `toggle-switch ${isEnabled ? 'active' : ''}`;
+    toggleSwitch.setAttribute('aria-checked', isEnabled.toString());
+    toggleSwitch.setAttribute('role', 'switch');
+    toggleSwitch.id = 'location-toggle';
+    
+    // Create toggle slider
+    const toggleSlider = document.createElement('span');
+    toggleSlider.className = 'toggle-slider';
+    toggleSwitch.appendChild(toggleSlider);
+    
+    // Append elements to container
+    toggleContainer.appendChild(label);
+    toggleContainer.appendChild(toggleSwitch);
+    
+    // Add to sidebar
+    sidebar.appendChild(toggleContainer);
+    
+    // Add click handler
+    toggleSwitch.addEventListener('click', async () => {
+        const currentState = getGeolocationEnabled();
+        const newState = !currentState;
+        
+        // Use toggleManager to handle the toggle
+        await toggleGeolocation(newState);
+    });
+    
+    // Now add the Navboxes toggle
+    addNavboxesToggle(sidebar);
+    
+    // Initialize the toggle manager after both toggles are created
+    initToggleManager();
+}
+
+/**
+ * Adds navboxes toggle to the sidebar
+ * @param {HTMLElement} sidebar - The sidebar element
+ */
+export function addNavboxesToggle(sidebar) {
+    // Only add this toggle on mobile devices
+    if (!isMobileDevice()) {
+        console.log('Navboxes toggle not added - not a mobile device');
+        return;
+    }
+    
+    // Create toggle container
+    const toggleContainer = document.createElement('div');
+    toggleContainer.className = 'toggle-container';
+    toggleContainer.style.display = 'flex';
+    toggleContainer.style.justifyContent = 'space-between';
+    toggleContainer.style.alignItems = 'center';
+    toggleContainer.style.padding = '5px 0';
+    toggleContainer.id = 'navboxes-toggle-container';
+    
+    // Create label
+    const label = document.createElement('span');
+    label.textContent = 'Navboxes';
+    label.style.marginRight = '10px';
+    
+    // Get current state from settings
+    const isEnabled = getNavboxesEnabled();
+    const geolocationEnabled = getGeolocationEnabled();
+    
+    // Create toggle switch
+    const toggleSwitch = document.createElement('button');
+    toggleSwitch.className = `toggle-switch ${isEnabled ? 'active' : ''}`;
+    toggleSwitch.setAttribute('aria-checked', isEnabled.toString());
+    toggleSwitch.setAttribute('role', 'switch');
+    toggleSwitch.id = 'navboxes-toggle';
+    
+    // Disable the toggle if geolocation is disabled
+    if (!geolocationEnabled) {
+        toggleSwitch.disabled = true;
+        toggleSwitch.style.opacity = '0.5';
+        toggleSwitch.style.cursor = 'not-allowed';
+    }
+    
+    // Create toggle slider
+    const toggleSlider = document.createElement('span');
+    toggleSlider.className = 'toggle-slider';
+    toggleSwitch.appendChild(toggleSlider);
+    
+    // Append elements to container
+    toggleContainer.appendChild(label);
+    toggleContainer.appendChild(toggleSwitch);
+    
+    // Add to sidebar
+    sidebar.appendChild(toggleContainer);
+    
+    // Add click handler
+    toggleSwitch.addEventListener('click', () => {
+        const currentState = getNavboxesEnabled();
+        const newState = !currentState;
+        
+        // Use toggleManager to handle the toggle
+        toggleNavboxes(newState);
+    });
 }
 
 // Note: These functions are referenced but defined elsewhere

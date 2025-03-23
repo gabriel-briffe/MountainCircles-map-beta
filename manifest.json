@@ -1,6 +1,6 @@
 {
-  "name": "beta map",
-  "short_name": "beta Map",
+  "name": "MountainCircles Map",
+  "short_name": "MC Map",
   "description": "Offline-capable map for mountain gliding",
   "start_url": "/MountainCircles-map-beta/",
   "display": "standalone",
