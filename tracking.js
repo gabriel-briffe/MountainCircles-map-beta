@@ -17,6 +17,15 @@ import {
 // Track start time
 let trackingStartTime = null;
 
+// Simulation variables
+let simulationActive = false;
+let simulationInterval = null;
+let simulationStartCoords = [5.9167, 45.5667]; // Chambery, France
+let simulationAltitude = 300; // Starting altitude in meters
+let simulationSpeed = 100; // km/h
+let simulationHeading = 90; // degrees (east)
+let simulationLastTime = null;
+
 // Initialize tracking module
 export function initializeTracking() {
   console.log('Initializing tracklog recording...');
@@ -27,17 +36,312 @@ export function initializeTracking() {
   // Create tracklog layer
   createTracklogLayer();
   
-  // Create tracklog info flag
-  createTracklogInfoFlag();
+  // Log simulation instructions to console (developer mode)
+  logSimulationInstructions();
   
   // Start automatic recording (enabled by default)
-  startTracking();
+  if (!simulationActive) {
+    startTracking();
+  }
   
   // Set up service worker message handler
   setupServiceWorkerMessageHandler();
   
   // Set tracking start time
   trackingStartTime = Date.now();
+  
+  // Log map info after initialization
+  setTimeout(logMapInfo, 1000);
+}
+
+// Log instructions for using simulation commands from console
+function logSimulationInstructions() {
+  console.log('%c===== TRACKLOG SIMULATION COMMANDS =====', 'font-weight: bold; color: #6200ee; font-size: 14px');
+  console.log('%cRun these commands in console to control the tracklog simulation:', 'color: #0277bd');
+  console.log('%c• startSimulation() %c- Start simulation from Chambery, heading east at 100km/h', 'color: #2e7d32; font-weight: bold', 'color: #333');
+  console.log('%c• stopSimulation() %c- Stop the active simulation', 'color: #c62828; font-weight: bold', 'color: #333');
+  console.log('%c• forceDebugDisplay() %c- Show debugging visuals on the map', 'color: #6a1b9a; font-weight: bold', 'color: #333');
+  console.log('%c========================================', 'font-weight: bold; color: #6200ee; font-size: 14px');
+  
+  // Make simulation functions available globally for console access
+  window.startSimulation = startSimulation;
+  window.stopSimulation = stopSimulation;
+  window.forceDebugDisplay = forceDebugDisplay;
+}
+
+// Add simulation controls to the map
+function addSimulationControls() {
+  const controlDiv = document.createElement('div');
+  controlDiv.id = 'simulation-controls';
+  controlDiv.style.position = 'absolute';
+  controlDiv.style.bottom = '20px';
+  controlDiv.style.left = '10px';
+  controlDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  controlDiv.style.padding = '10px';
+  controlDiv.style.borderRadius = '4px';
+  controlDiv.style.zIndex = '1000';
+  
+  const startButton = document.createElement('button');
+  startButton.textContent = 'Start Simulation';
+  startButton.style.padding = '8px 12px';
+  startButton.style.marginRight = '10px';
+  startButton.onclick = startSimulation;
+  
+  const stopButton = document.createElement('button');
+  stopButton.textContent = 'Stop Simulation';
+  stopButton.style.padding = '8px 12px';
+  stopButton.style.marginRight = '10px';
+  stopButton.onclick = stopSimulation;
+  
+  const debugButton = document.createElement('button');
+  debugButton.textContent = 'Force Debug';
+  debugButton.style.padding = '8px 12px';
+  debugButton.onclick = forceDebugDisplay;
+  
+  controlDiv.appendChild(startButton);
+  controlDiv.appendChild(stopButton);
+  controlDiv.appendChild(debugButton);
+  
+  const mapContainer = document.getElementById('map');
+  if (mapContainer) {
+    mapContainer.appendChild(controlDiv);
+  }
+}
+
+// Log detailed map information for debugging
+function logMapInfo() {
+  const map = getMap();
+  if (!map) {
+    console.error('Map not available');
+    return;
+  }
+  
+  console.log('Map Debug Info:');
+  console.log('- Map loaded:', map.loaded());
+  console.log('- Map style loaded:', map.isStyleLoaded());
+  
+  try {
+    console.log('- Map center:', map.getCenter());
+    console.log('- Map zoom:', map.getZoom());
+    console.log('- Map bounds:', map.getBounds());
+    
+    const style = map.getStyle();
+    console.log('- Style sources:', Object.keys(style.sources));
+    console.log('- Style layers:', style.layers.map(l => l.id));
+    
+    console.log('- Tracklog layer exists:', !!map.getLayer('tracklog-line'));
+    console.log('- Tracklog source exists:', !!map.getSource('tracklog-source'));
+    
+    // Check if tracklog layer is active/visible
+    const tracklogLayer = style.layers.find(l => l.id === 'tracklog-line');
+    if (tracklogLayer) {
+      console.log('- Tracklog layer visibility:', tracklogLayer.layout?.visibility || 'visible (default)');
+    }
+  } catch (error) {
+    console.error('Error getting map info:', error);
+  }
+}
+
+// Force display of debug elements
+function forceDebugDisplay() {
+  const map = getMap();
+  console.log('Forcing debug display...');
+  
+  try {
+    // Add a large red circle at the map center
+    const center = map.getCenter();
+    
+    // Remove existing debug circle if it exists
+    if (map.getLayer('debug-circle')) {
+      map.removeLayer('debug-circle');
+    }
+    
+    if (map.getSource('debug-circle-source')) {
+      map.removeSource('debug-circle-source');
+    }
+    
+    // Add a debug circle source
+    map.addSource('debug-circle-source', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [center.lng, center.lat]
+        },
+        properties: {}
+      }
+    });
+    
+    // Add a large circle layer
+    map.addLayer({
+      id: 'debug-circle',
+      type: 'circle',
+      source: 'debug-circle-source',
+      paint: {
+        'circle-radius': 50,
+        'circle-color': '#FF0000',
+        'circle-opacity': 0.5,
+        'circle-stroke-width': 3,
+        'circle-stroke-color': '#FFFFFF'
+      }
+    });
+    
+    // Try converting tracklog to points-only
+    const tracklog = getTracklog();
+    if (tracklog.length > 0) {
+      console.log(`Converting ${tracklog.length} tracklog points to circles`);
+      
+      if (map.getLayer('tracklog-debug-points')) {
+        map.removeLayer('tracklog-debug-points');
+      }
+      
+      if (map.getSource('tracklog-debug-source')) {
+        map.removeSource('tracklog-debug-source');
+      }
+      
+      // Create a point for each tracklog entry
+      const points = tracklog.map(point => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: point.coordinates
+        },
+        properties: {}
+      }));
+      
+      // Add a source for the tracklog points
+      map.addSource('tracklog-debug-source', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: points
+        }
+      });
+      
+      // Add a circle layer to display the points
+      map.addLayer({
+        id: 'tracklog-debug-points',
+        type: 'circle',
+        source: 'tracklog-debug-source',
+        paint: {
+          'circle-radius': 8,
+          'circle-color': '#00FFFF',
+          'circle-opacity': 1,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#000000'
+        }
+      });
+    }
+    
+    // Log updated map info
+    logMapInfo();
+  } catch (error) {
+    console.error('Error forcing debug display:', error);
+  }
+}
+
+// Start simulation
+function startSimulation() {
+  if (simulationActive) return;
+  
+  console.log('Starting tracklog simulation from Chambery');
+  simulationActive = true;
+  simulationLastTime = Date.now();
+  
+  // Reset tracklog for clean testing
+  setTracklog([]);
+  trackingStartTime = Date.now();
+  
+  // Fly the map to the starting location
+  const map = getMap();
+  map.flyTo({
+    center: simulationStartCoords,
+    zoom: 12,
+    speed: 2
+  });
+  
+  // Track the last simulation time to ensure exactly 1-second intervals
+  let nextUpdateTime = Date.now() + 1000;
+  
+  // Simulate position updates every second
+  simulationInterval = setInterval(() => {
+    // Calculate time since last update (should be ~1000ms but can vary)
+    const now = Date.now();
+    
+    // Skip this update if it's too soon
+    if (now < nextUpdateTime) {
+      return;
+    }
+    
+    const timeDeltaMs = now - (simulationLastTime || now);
+    simulationLastTime = now;
+    nextUpdateTime = now + 1000; // Schedule next update exactly 1 second from now
+    
+    // Get current position from state or use start coords if none
+    const tracklog = getTracklog();
+    let currentPosition;
+    
+    if (tracklog.length > 0) {
+      const lastPoint = tracklog[tracklog.length - 1];
+      currentPosition = lastPoint.coordinates;
+    } else {
+      currentPosition = simulationStartCoords;
+    }
+    
+    // Calculate new position based on speed and heading
+    // 100 km/h = 27.78 m/s, so we move that distance in the heading direction
+    const metersPerSecond = simulationSpeed * 1000 / 3600;
+    const distanceMoved = metersPerSecond * (timeDeltaMs / 1000);
+    
+    // Convert distance to degrees (approximate, works for small distances)
+    // 1 degree of longitude at equator is ~111km, adjust for latitude
+    const latFactor = Math.cos(currentPosition[1] * Math.PI / 180);
+    const lngChange = (distanceMoved / (111320 * latFactor)) * Math.sin(simulationHeading * Math.PI / 180);
+    const latChange = (distanceMoved / 111320) * Math.cos(simulationHeading * Math.PI / 180);
+    
+    // Calculate new position
+    const newLng = currentPosition[0] + lngChange;
+    const newLat = currentPosition[1] + latChange;
+    
+    // Generate random altitude change between -10 and +10 meters
+    const altitudeChange = (Math.random() * 20) - 10;
+    simulationAltitude += altitudeChange;
+    
+    // Create simulated position object
+    const simulatedPosition = {
+      coords: {
+        longitude: newLng,
+        latitude: newLat,
+        altitude: simulationAltitude,
+        accuracy: 10,
+        altitudeAccuracy: 5,
+        heading: simulationHeading,
+        speed: metersPerSecond
+      },
+      timestamp: now
+    };
+    
+    // Process the simulated position
+    handlePositionUpdate(simulatedPosition);
+    
+    // Move the map to follow the simulation
+    map.panTo([newLng, newLat], { animate: true, duration: 1000 });
+    
+  }, 100); // Run more frequently but only update at 1-second intervals
+}
+
+// Stop simulation
+function stopSimulation() {
+  if (!simulationActive) return;
+  
+  console.log('Stopping tracklog simulation');
+  simulationActive = false;
+  
+  if (simulationInterval) {
+    clearInterval(simulationInterval);
+    simulationInterval = null;
+  }
 }
 
 // Setup initial tracklog state
@@ -51,165 +355,157 @@ function setupTracklogState() {
   }
 }
 
-// Create a flag div to display tracklog information
-function createTracklogInfoFlag() {
-  // Create the flag element
-  const flagDiv = document.createElement('div');
-  flagDiv.id = 'tracklog-info-flag';
-  flagDiv.style.position = 'absolute';
-  flagDiv.style.top = '10px';
-  flagDiv.style.right = '10px';
-  flagDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-  flagDiv.style.color = 'white';
-  flagDiv.style.padding = '10px 14px';
-  flagDiv.style.borderRadius = '6px';
-  flagDiv.style.fontSize = '14px';
-  flagDiv.style.zIndex = '1000';
-  flagDiv.style.fontFamily = 'Arial, sans-serif';
-  flagDiv.style.boxShadow = '0 2px 6px rgba(0,0,0,0.5)';
-  flagDiv.style.minWidth = '150px';
-  flagDiv.style.backdropFilter = 'blur(3px)';
-  flagDiv.style.lineHeight = '1.5';
-  flagDiv.textContent = 'Tracklog segments: 0';
-  
-  // Add to the map container
-  const mapContainer = document.getElementById('map');
-  if (mapContainer) {
-    mapContainer.appendChild(flagDiv);
-  }
-  
-  // Set up regular updates for the flag (useful for timestamps even when path doesn't change)
-  setInterval(() => {
-    const tracklog = getTracklog();
-    if (tracklog.length > 0) {
-      updateTracklogInfoFlag(tracklog.length > 1 ? tracklog.length - 1 : 0);
-    }
-  }, 1000);
-}
-
-// Update the tracklog info flag with current info
-function updateTracklogInfoFlag(segmentCount) {
-  const flagDiv = document.getElementById('tracklog-info-flag');
-  if (!flagDiv) return;
-  
-  const tracklog = getTracklog();
-  
-  // If we have at least one point, show altitude info
-  let altitude = 'N/A';
-  let verticalSpeed = 'N/A';
-  let lastCoords = 'N/A';
-  
-  if (tracklog.length > 0) {
-    // Get latest point
-    const latestPoint = tracklog[tracklog.length - 1];
-    altitude = latestPoint.altitude ? `${Math.round(latestPoint.altitude)}m` : 'N/A';
-    lastCoords = latestPoint.coordinates ? 
-      `${latestPoint.coordinates[0].toFixed(5)}, ${latestPoint.coordinates[1].toFixed(5)}` : 'N/A';
-    
-    // Calculate vertical speed if we have at least two points
-    if (tracklog.length > 1) {
-      const prevPoint = tracklog[tracklog.length - 2];
-      const timeDiff = (latestPoint.timestamp - prevPoint.timestamp) / 1000; // seconds
-      const altDiff = latestPoint.altitude - prevPoint.altitude; // meters
-      const vSpeed = altDiff / timeDiff; // m/s
-      
-      // Format vertical speed with sign and rounded to 1 decimal
-      const sign = vSpeed > 0 ? '+' : '';
-      verticalSpeed = `${sign}${vSpeed.toFixed(1)} m/s`;
-    }
-  }
-  
-  // Calculate tracking duration
-  let trackingTime = 'Starting...';
-  if (trackingStartTime) {
-    const durationMs = Date.now() - trackingStartTime;
-    trackingTime = formatDuration(durationMs);
-  }
-  
-  // Create HTML content with data
-  flagDiv.innerHTML = `
-    <div style="font-weight: bold; margin-bottom: 4px;">Tracklog Info</div>
-    <div>Duration: ${trackingTime}</div>
-    <div>Segments: ${segmentCount}</div>
-    <div>Position: ${lastCoords}</div>
-    <div>Altitude: ${altitude}</div>
-    <div>Vertical: ${verticalSpeed}</div>
-  `;
-}
-
-// Format milliseconds into a readable duration string (HH:MM:SS)
-function formatDuration(durationMs) {
-  const seconds = Math.floor(durationMs / 1000) % 60;
-  const minutes = Math.floor(durationMs / (1000 * 60)) % 60;
-  const hours = Math.floor(durationMs / (1000 * 60 * 60));
-  
-  const pad = (num) => num.toString().padStart(2, '0');
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-}
-
 // Create the tracklog layer on the map
 function createTracklogLayer() {
+  console.log('Creating tracklog layer...');
   const layerManager = getLayerManager();
+  const map = getMap();
   
-  // Add source for tracklog data
-  layerManager.addOrUpdateSource('tracklog-source', {
-    type: 'geojson',
-    data: {
-      type: 'FeatureCollection',
-      features: []
+  try {
+    // Remove any existing layer/source with the same name
+    if (map.getLayer('tracklog-line')) {
+      console.log('Removing existing tracklog layer');
+      map.removeLayer('tracklog-line');
     }
-  });
-  
-  // Add the tracklog line layer
-  layerManager.addLayerIfNotExists('tracklog-line', getTracklogLineStyle());
-  
-  // Add a test line to verify lines can be displayed correctly
-  setTimeout(() => {
-    console.log('Adding test line to verify line rendering');
     
-    // Get the center of the map
-    const map = getMap();
-    const center = map.getCenter();
+    if (map.getSource('tracklog-source')) {
+      console.log('Removing existing tracklog source');
+      map.removeSource('tracklog-source');
+    }
     
-    // Create a visible test line from the center
-    const testFeature = {
-      type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [center.lng - 0.01, center.lat - 0.01],
-          [center.lng + 0.01, center.lat + 0.01]
-        ]
-      },
-      properties: {
-        verticalSpeed: 5  // Force red color for visibility
-      }
-    };
-    
-    // Add test source and layer
-    layerManager.addOrUpdateSource('test-line-source', {
+    // Add a new source directly to the map
+    console.log('Adding tracklog source directly to map');
+    map.addSource('tracklog-source', {
       type: 'geojson',
       data: {
         type: 'FeatureCollection',
-        features: [testFeature]
+        features: []
       }
     });
     
-    // Add test line with simpler style
-    layerManager.addLayerIfNotExists('test-line', {
-      id: 'test-line',
+    // Add a new layer directly to the map 
+    console.log('Adding tracklog layer directly to map');
+    map.addLayer({
+      id: 'tracklog-line',
       type: 'line',
-      source: 'test-line-source',
+      source: 'tracklog-source',
       layout: {
         'line-join': 'round',
-        'line-cap': 'round'
+        'line-cap': 'round',
+        'visibility': 'visible'
       },
       paint: {
-        'line-width': 5,
-        'line-color': '#FF0000'
+        'line-width': 10,         // Extra thick for debugging
+        'line-opacity': 1.0,
+        'line-color': '#FF0000'    // Start with solid red for debugging
       }
     });
-  }, 2000);
+    
+    console.log('Successfully added tracklog layer and source');
+    
+    // Also add a single-feature line layer that connects all points in one stroke
+    // This is a simpler approach that might be more reliable
+    setTimeout(createSingleLineFeature, 1000);
+  } catch (error) {
+    console.error('Error creating tracklog layer:', error);
+  }
+}
+
+// Create a single line feature that connects all points in one stroke
+function createSingleLineFeature() {
+  const map = getMap();
+  const tracklog = getTracklog();
+  
+  if (!map || tracklog.length < 2) return;
+  
+  console.log('Creating single line feature from all tracklog points');
+  
+  try {
+    // Remove existing layer/source if they exist
+    if (map.getLayer('tracklog-full-line')) {
+      map.removeLayer('tracklog-full-line');
+    }
+    
+    if (map.getSource('tracklog-full-source')) {
+      map.removeSource('tracklog-full-source');
+    }
+    
+    // Collect all valid coordinates into a single LineString
+    const coordinates = tracklog
+      .filter(point => point.coordinates && point.coordinates.length === 2)
+      .map(point => point.coordinates);
+    
+    if (coordinates.length < 2) {
+      console.warn('Not enough valid coordinates for a line');
+      return;
+    }
+    
+    // Calculate vertical speeds for each point
+    const features = [];
+    for (let i = 1; i < tracklog.length; i++) {
+      const startPoint = tracklog[i-1];
+      const endPoint = tracklog[i];
+      
+      // Skip invalid coordinates
+      if (!startPoint.coordinates || !endPoint.coordinates) {
+        continue;
+      }
+      
+      // Calculate vertical speed in m/s
+      const timeDiff = (endPoint.timestamp - startPoint.timestamp) / 1000; // seconds
+      if (timeDiff < 0.1) continue; // Skip invalid time differences
+      
+      const altDiff = (endPoint.altitude || 0) - (startPoint.altitude || 0); // meters
+      const verticalSpeed = altDiff / timeDiff; // m/s
+      
+      // Create a feature for this segment with vertical speed property
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [startPoint.coordinates, endPoint.coordinates]
+        },
+        properties: {
+          verticalSpeed: verticalSpeed
+        }
+      });
+    }
+    
+    // Create a source with the features
+    map.addSource('tracklog-full-source', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: features
+      }
+    });
+    
+    // Add a layer with vertical speed gradient
+    map.addLayer({
+      id: 'tracklog-full-line',
+      type: 'line',
+      source: 'tracklog-full-source',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round',
+        'visibility': 'visible'
+      },
+      paint: {
+        'line-width': 8,
+        'line-opacity': 1.0,
+        'line-color': [
+          'interpolate',
+          ['linear'],
+          ['get', 'verticalSpeed'],
+          ...generateVerticalSpeedGradient()
+        ]
+      }
+    });
+    
+    console.log('Single line feature created with gradient coloring');
+  } catch (error) {
+    console.error('Error creating single line feature:', error);
+  }
 }
 
 // Start the tracking process
@@ -274,10 +570,10 @@ function handlePositionUpdate(position) {
   checkAndResetDaily();
   
   // Record track point (throttled to 1s)
+  // Only update display if a new point was actually recorded
   recordTrackPoint(position);
   
-  // Update the map display
-  updateTracklogDisplay();
+  // We no longer call updateTracklogDisplay() here - it's called directly in recordTrackPoint() when needed
 }
 
 // Process and record each track point
@@ -315,9 +611,12 @@ function recordTrackPoint(position) {
     setTracklog(newTracklog);
     setLastRecordedTime(now);
     
-    // Force update the display
+    // Update the display immediately after recording a new point
     updateTracklogDisplay();
+    
+    return true; // Return true if we recorded a point
   }
+  return false; // Return false if we did not record a point (throttled)
 }
 
 // Check and reset tracklog for a new day
@@ -337,9 +636,10 @@ function checkAndResetDaily() {
 function updateTracklogDisplay() {
   const tracklog = getTracklog();
   if (tracklog.length < 2) {
-    updateTracklogInfoFlag(0);
     return;
   }
+  
+  console.log(`Updating tracklog display with ${tracklog.length} points`);
   
   // Create individual line segments
   const features = [];
@@ -350,21 +650,31 @@ function updateTracklogDisplay() {
     
     // Skip invalid coordinates
     if (!startPoint.coordinates || !endPoint.coordinates) {
+      console.warn(`Skipping segment ${i}: Invalid coordinates`);
       continue;
     }
     
-    // Calculate vertical speed for this specific segment
-    const timeDiff = Math.max(0.1, (endPoint.timestamp - startPoint.timestamp) / 1000); // seconds, minimum 0.1s
-    const altDiff = (endPoint.altitude || 0) - (startPoint.altitude || 0); // meters, use 0 if altitude missing
+    // Skip zero-length segments
+    const isSamePoint = 
+      startPoint.coordinates[0] === endPoint.coordinates[0] && 
+      startPoint.coordinates[1] === endPoint.coordinates[1];
+    
+    if (isSamePoint) {
+      console.warn(`Skipping segment ${i}: Same start and end point`);
+      continue;
+    }
+    
+    // Calculate vertical speed in m/s
+    const timeDiff = (endPoint.timestamp - startPoint.timestamp) / 1000; // seconds
+    if (timeDiff < 0.1) {
+      console.warn(`Skipping segment ${i}: Time difference too small (${timeDiff}s)`);
+      continue;
+    }
+    
+    const altDiff = (endPoint.altitude || 0) - (startPoint.altitude || 0); // meters
     const verticalSpeed = altDiff / timeDiff; // m/s
     
-    // Force a small non-zero vertical speed if it's exactly 0 (for visibility)
-    const displayVerticalSpeed = Math.abs(verticalSpeed) < 0.01 ? 0.01 : verticalSpeed;
-    
-    // Log segment data for debugging
-    console.log(`Segment ${i}: Coords ${startPoint.coordinates} → ${endPoint.coordinates}, vSpeed: ${displayVerticalSpeed}`);
-    
-    // Create a line segment with its own vertical speed property
+    // Create a line segment with vertical speed property
     features.push({
       type: 'Feature',
       geometry: {
@@ -372,44 +682,88 @@ function updateTracklogDisplay() {
         coordinates: [startPoint.coordinates, endPoint.coordinates]
       },
       properties: {
-        verticalSpeed: displayVerticalSpeed
+        segmentIndex: i,
+        verticalSpeed: verticalSpeed
       }
     });
   }
   
-  // Add a debug feature if no segments were created
-  if (features.length === 0 && tracklog.length >= 2) {
-    const first = tracklog[0];
-    const last = tracklog[tracklog.length - 1];
-    
-    if (first.coordinates && last.coordinates) {
-      features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: [first.coordinates, last.coordinates]
-        },
-        properties: {
-          verticalSpeed: 1 // Force yellow color for visibility
-        }
-      });
-      console.log('Added debug line feature from first to last point');
-    }
+  if (features.length === 0) {
+    console.warn('No valid features to display');
+    return;
   }
   
-  console.log(`Updating tracklog with ${features.length} features`);
+  // Get the map directly
+  const map = getMap();
   
-  // Update the source with individual segments
-  getLayerManager().addOrUpdateSource('tracklog-source', {
-    type: 'geojson',
-    data: {
-      type: 'FeatureCollection',
-      features: features
+  if (!map) {
+    console.error('Map not available');
+    return;
+  }
+  
+  console.log(`Updating source with ${features.length} line segments`);
+  
+  try {
+    // Update the source directly
+    const source = map.getSource('tracklog-source');
+    if (source) {
+      source.setData({
+        type: 'FeatureCollection',
+        features: features
+      });
+      console.log('Source updated successfully');
+    } else {
+      console.error('tracklog-source not found');
     }
-  });
-  
-  // Update the info flag with segment count
-  updateTracklogInfoFlag(features.length);
+    
+    // Update the single line feature if it exists
+    const fullSource = map.getSource('tracklog-full-source');
+    if (fullSource) {
+      // Calculate vertical speeds for each segment
+      const gradientFeatures = [];
+      for (let i = 1; i < tracklog.length; i++) {
+        const startPoint = tracklog[i-1];
+        const endPoint = tracklog[i];
+        
+        // Skip invalid coordinates
+        if (!startPoint.coordinates || !endPoint.coordinates) {
+          continue;
+        }
+        
+        // Calculate vertical speed in m/s
+        const timeDiff = (endPoint.timestamp - startPoint.timestamp) / 1000; // seconds
+        if (timeDiff < 0.1) continue; // Skip invalid time differences
+        
+        const altDiff = (endPoint.altitude || 0) - (startPoint.altitude || 0); // meters
+        const verticalSpeed = altDiff / timeDiff; // m/s
+        
+        // Create a feature for this segment with vertical speed property
+        gradientFeatures.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: [startPoint.coordinates, endPoint.coordinates]
+          },
+          properties: {
+            verticalSpeed: verticalSpeed
+          }
+        });
+      }
+      
+      if (gradientFeatures.length >= 1) {
+        fullSource.setData({
+          type: 'FeatureCollection',
+          features: gradientFeatures
+        });
+        console.log('Gradient line source updated with', gradientFeatures.length, 'segments');
+      }
+    } else {
+      // Create the full line if it doesn't exist yet
+      createSingleLineFeature();
+    }
+  } catch (error) {
+    console.error('Error updating tracklog data:', error);
+  }
 }
 
 // Handle position errors
@@ -512,11 +866,12 @@ function getTracklogLineStyle() {
     source: 'tracklog-source',
     layout: {
       'line-join': 'round',
-      'line-cap': 'round'
+      'line-cap': 'round',
+      'visibility': 'visible'
     },
     paint: {
-      'line-width': 5,
-      'line-opacity': 0.9,
+      'line-width': 6,         // Increase width
+      'line-opacity': 1.0,     // Full opacity
       'line-color': [
         'interpolate',
         ['linear'],
