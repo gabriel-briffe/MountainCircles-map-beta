@@ -186,26 +186,25 @@ function createSingleLineFeature() {
   }
 }
 
-// Move the tracklog layer to the top of all other layers
+// Position the tracklog layer just below the location marker layer
 function moveTracklogToTop() {
   const map = getMap();
   if (!map || !map.getLayer('tracklog-full-line')) return;
   
   try {
-    // Get all layers
-    const style = map.getStyle();
-    if (!style || !style.layers || style.layers.length === 0) return;
-    
-    // If tracklog is not already the last layer, move it to the top
-    const lastLayerId = style.layers[style.layers.length - 1].id;
-    if (lastLayerId !== 'tracklog-full-line') {
-      console.log('Moving tracklog layer to the top');
+    // Check if the location marker layer exists
+    if (map.getLayer('location-marker-triangle')) {
+      console.log('Moving tracklog layer below location marker');
       
-      // Moving the layer to undefined places it at the top
+      // Move tracklog layer below the location marker
+      map.moveLayer('tracklog-full-line', 'location-marker-triangle');
+    } else {
+      // If location marker doesn't exist, move tracklog to top
+      console.log('Location marker not found, moving tracklog to top');
       map.moveLayer('tracklog-full-line');
     }
   } catch (error) {
-    console.error('Error moving tracklog layer to top:', error);
+    console.error('Error positioning tracklog layer:', error);
   }
 }
 
