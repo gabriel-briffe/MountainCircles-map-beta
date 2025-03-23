@@ -1119,9 +1119,6 @@ export function addTracklogControls(sidebar) {
         // Toggle the tracklog layer visibility
         if (map) {
             try {
-                if (map.getLayer('tracklog-line')) {
-                    map.setLayoutProperty('tracklog-line', 'visibility', isActive ? 'visible' : 'none');
-                }
                 if (map.getLayer('tracklog-full-line')) {
                     map.setLayoutProperty('tracklog-full-line', 'visibility', isActive ? 'visible' : 'none');
                 }
@@ -1133,43 +1130,6 @@ export function addTracklogControls(sidebar) {
     
     trackToggle.appendChild(toggleSwitch);
     tracklogContainer.appendChild(trackToggle);
-    
-    // Add opacity slider
-    const sliderContainer = document.createElement('div');
-    sliderContainer.className = 'slider-container';
-    sliderContainer.style.padding = '10px 0';
-    
-    // Create opacity slider
-    const opacitySlider = document.createElement('input');
-    opacitySlider.type = 'range';
-    opacitySlider.min = '0';
-    opacitySlider.max = '1';
-    opacitySlider.step = '0.1';
-    opacitySlider.value = '1';
-    opacitySlider.className = 'opacity-slider';
-    opacitySlider.style.width = '100%';
-    
-    // Add event listener to adjust opacity
-    opacitySlider.addEventListener('input', (e) => {
-        const opacity = parseFloat(e.target.value);
-        const map = getMap();
-        
-        if (map) {
-            try {
-                if (map.getLayer('tracklog-line')) {
-                    map.setPaintProperty('tracklog-line', 'line-opacity', opacity);
-                }
-                if (map.getLayer('tracklog-full-line')) {
-                    map.setPaintProperty('tracklog-full-line', 'line-opacity', opacity);
-                }
-            } catch (err) {
-                console.error('Error adjusting tracklog opacity:', err);
-            }
-        }
-    });
-    
-    sliderContainer.appendChild(opacitySlider);
-    tracklogContainer.appendChild(sliderContainer);
     
     // Add clear button
     const clearButton = document.createElement('button');
@@ -1195,14 +1155,6 @@ export function addTracklogControls(sidebar) {
             const map = getMap();
             if (map) {
                 try {
-                    const source = map.getSource('tracklog-source');
-                    if (source) {
-                        source.setData({
-                            type: 'FeatureCollection',
-                            features: []
-                        });
-                    }
-                    
                     const fullSource = map.getSource('tracklog-full-source');
                     if (fullSource) {
                         fullSource.setData({
