@@ -36,7 +36,9 @@ import {
     getGeolocationEnabled,
     setGeolocationEnabled,
     getNavboxesEnabled,
-    setNavboxesEnabled
+    setNavboxesEnabled,
+    getTracklog,
+    setTracklog
 } from "./state.js";
 
 // Import from utils
@@ -145,6 +147,10 @@ export function createTypeCheckboxes(features) {
         // Add geolocation toggle
         addLocationToggle(sidebar);
     }
+    
+    // Add tracklog section
+    addSidebarDivider(sidebar);
+    addTracklogControls(sidebar);
     
     // Add a divider
     addSidebarDivider(sidebar);
@@ -1075,6 +1081,147 @@ export function addNavboxesToggle(sidebar) {
         // Use toggleManager to handle the toggle
         toggleNavboxes(newState);
     });
+}
+
+/**
+ * Adds tracklog controls to the sidebar
+ * @param {HTMLElement} sidebar - The sidebar element
+ */
+export function addTracklogControls(sidebar) {
+    const tracklogContainer = document.createElement('div');
+    tracklogContainer.className = 'sidebar-section';
+    
+    // Track toggle
+    const trackToggle = document.createElement('div');
+    trackToggle.className = 'toggle-container';
+    
+    // Create label
+    const trackLabel = document.createElement('span');
+    trackLabel.textContent = 'Track';
+    trackLabel.className = 'toggle-label';
+    trackToggle.appendChild(trackLabel);
+    
+    // Create toggle switch
+    const toggleSwitch = document.createElement('div');
+    toggleSwitch.className = 'toggle-switch active'; // Default to active
+    toggleSwitch.id = 'tracklog-toggle';
+    
+    // Add the slider inside the toggle
+    const slider = document.createElement('div');
+    slider.className = 'toggle-slider';
+    toggleSwitch.appendChild(slider);
+    
+    // Add click event listener to toggle tracklog visibility
+    toggleSwitch.addEventListener('click', () => {
+        const isActive = toggleSwitch.classList.toggle('active');
+        const map = getMap();
+        
+        // Toggle the tracklog layer visibility
+        if (map) {
+            try {
+                if (map.getLayer('tracklog-line')) {
+                    map.setLayoutProperty('tracklog-line', 'visibility', isActive ? 'visible' : 'none');
+                }
+                if (map.getLayer('tracklog-full-line')) {
+                    map.setLayoutProperty('tracklog-full-line', 'visibility', isActive ? 'visible' : 'none');
+                }
+            } catch (err) {
+                console.error('Error toggling tracklog visibility:', err);
+            }
+        }
+    });
+    
+    trackToggle.appendChild(toggleSwitch);
+    tracklogContainer.appendChild(trackToggle);
+    
+    // Add opacity slider
+    const sliderContainer = document.createElement('div');
+    sliderContainer.className = 'slider-container';
+    sliderContainer.style.padding = '10px 0';
+    
+    // Create opacity slider
+    const opacitySlider = document.createElement('input');
+    opacitySlider.type = 'range';
+    opacitySlider.min = '0';
+    opacitySlider.max = '1';
+    opacitySlider.step = '0.1';
+    opacitySlider.value = '1';
+    opacitySlider.className = 'opacity-slider';
+    opacitySlider.style.width = '100%';
+    
+    // Add event listener to adjust opacity
+    opacitySlider.addEventListener('input', (e) => {
+        const opacity = parseFloat(e.target.value);
+        const map = getMap();
+        
+        if (map) {
+            try {
+                if (map.getLayer('tracklog-line')) {
+                    map.setPaintProperty('tracklog-line', 'line-opacity', opacity);
+                }
+                if (map.getLayer('tracklog-full-line')) {
+                    map.setPaintProperty('tracklog-full-line', 'line-opacity', opacity);
+                }
+            } catch (err) {
+                console.error('Error adjusting tracklog opacity:', err);
+            }
+        }
+    });
+    
+    sliderContainer.appendChild(opacitySlider);
+    tracklogContainer.appendChild(sliderContainer);
+    
+    // Add clear button
+    const clearButton = document.createElement('button');
+    clearButton.textContent = 'Clear Track';
+    clearButton.className = 'sidebar-button';
+    clearButton.style.width = '100%';
+    clearButton.style.padding = '8px';
+    clearButton.style.marginTop = '8px';
+    clearButton.style.backgroundColor = '#f44336';
+    clearButton.style.color = 'white';
+    clearButton.style.border = 'none';
+    clearButton.style.borderRadius = '4px';
+    clearButton.style.cursor = 'pointer';
+    
+    // Add event listener to clear tracklog
+    clearButton.addEventListener('click', () => {
+        // Confirm before clearing
+        if (confirm('Are you sure you want to clear the current tracklog?')) {
+            // Clear the tracklog from state
+            setTracklog([]);
+            
+            // Clear the tracklog layers
+            const map = getMap();
+            if (map) {
+                try {
+                    const source = map.getSource('tracklog-source');
+                    if (source) {
+                        source.setData({
+                            type: 'FeatureCollection',
+                            features: []
+                        });
+                    }
+                    
+                    const fullSource = map.getSource('tracklog-full-source');
+                    if (fullSource) {
+                        fullSource.setData({
+                            type: 'FeatureCollection',
+                            features: []
+                        });
+                    }
+                } catch (err) {
+                    console.error('Error clearing tracklog sources:', err);
+                }
+            }
+            
+            // Save the cleared state
+            saveStateToLocalStorage();
+        }
+    });
+    
+    tracklogContainer.appendChild(clearButton);
+    sidebar.appendChild(tracklogContainer);
 }
 
 // Note: These functions are referenced but defined elsewhere
