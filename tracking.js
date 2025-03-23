@@ -97,11 +97,14 @@ function updateTracklogInfoFlag(segmentCount) {
   // If we have at least one point, show altitude info
   let altitude = 'N/A';
   let verticalSpeed = 'N/A';
+  let lastCoords = 'N/A';
   
   if (tracklog.length > 0) {
     // Get latest point
     const latestPoint = tracklog[tracklog.length - 1];
     altitude = latestPoint.altitude ? `${Math.round(latestPoint.altitude)}m` : 'N/A';
+    lastCoords = latestPoint.coordinates ? 
+      `${latestPoint.coordinates[0].toFixed(5)}, ${latestPoint.coordinates[1].toFixed(5)}` : 'N/A';
     
     // Calculate vertical speed if we have at least two points
     if (tracklog.length > 1) {
@@ -128,6 +131,7 @@ function updateTracklogInfoFlag(segmentCount) {
     <div style="font-weight: bold; margin-bottom: 4px;">Tracklog Info</div>
     <div>Duration: ${trackingTime}</div>
     <div>Segments: ${segmentCount}</div>
+    <div>Position: ${lastCoords}</div>
     <div>Altitude: ${altitude}</div>
     <div>Vertical: ${verticalSpeed}</div>
   `;
@@ -158,6 +162,54 @@ function createTracklogLayer() {
   
   // Add the tracklog line layer
   layerManager.addLayerIfNotExists('tracklog-line', getTracklogLineStyle());
+  
+  // Add a test line to verify lines can be displayed correctly
+  setTimeout(() => {
+    console.log('Adding test line to verify line rendering');
+    
+    // Get the center of the map
+    const map = getMap();
+    const center = map.getCenter();
+    
+    // Create a visible test line from the center
+    const testFeature = {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [center.lng - 0.01, center.lat - 0.01],
+          [center.lng + 0.01, center.lat + 0.01]
+        ]
+      },
+      properties: {
+        verticalSpeed: 5  // Force red color for visibility
+      }
+    };
+    
+    // Add test source and layer
+    layerManager.addOrUpdateSource('test-line-source', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: [testFeature]
+      }
+    });
+    
+    // Add test line with simpler style
+    layerManager.addLayerIfNotExists('test-line', {
+      id: 'test-line',
+      type: 'line',
+      source: 'test-line-source',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-width': 5,
+        'line-color': '#FF0000'
+      }
+    });
+  }, 2000);
 }
 
 // Start the tracking process
@@ -233,16 +285,38 @@ function recordTrackPoint(position) {
   const now = Date.now();
   // Enforce 1 second interval between records
   if (!getLastRecordedTime() || now - getLastRecordedTime() >= 1000) {
+    // Make sure we have valid coordinates
+    if (!position.coords || typeof position.coords.longitude !== 'number' || typeof position.coords.latitude !== 'number') {
+      console.warn('Invalid position received:', position);
+      return;
+    }
+    
+    // Create the point with coordinates
+    const lng = position.coords.longitude;
+    const lat = position.coords.latitude;
+    
+    // Safety check for out-of-bounds coordinates
+    if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+      console.warn('Invalid coordinates received:', lng, lat);
+      return;
+    }
+    
     const point = {
-      coordinates: [position.coords.longitude, position.coords.latitude],
+      coordinates: [lng, lat],
       altitude: position.coords.altitude || 0,
       timestamp: now
     };
+    
+    // Log the point for debugging
+    console.log(`Recording point: [${point.coordinates[0].toFixed(5)}, ${point.coordinates[1].toFixed(5)}], alt: ${point.altitude}`);
     
     // Add to tracklog
     const newTracklog = [...getTracklog(), point];
     setTracklog(newTracklog);
     setLastRecordedTime(now);
+    
+    // Force update the display
+    updateTracklogDisplay();
   }
 }
 
@@ -274,10 +348,21 @@ function updateTracklogDisplay() {
     const startPoint = tracklog[i-1];
     const endPoint = tracklog[i];
     
+    // Skip invalid coordinates
+    if (!startPoint.coordinates || !endPoint.coordinates) {
+      continue;
+    }
+    
     // Calculate vertical speed for this specific segment
-    const timeDiff = (endPoint.timestamp - startPoint.timestamp) / 1000; // seconds
-    const altDiff = endPoint.altitude - startPoint.altitude; // meters
+    const timeDiff = Math.max(0.1, (endPoint.timestamp - startPoint.timestamp) / 1000); // seconds, minimum 0.1s
+    const altDiff = (endPoint.altitude || 0) - (startPoint.altitude || 0); // meters, use 0 if altitude missing
     const verticalSpeed = altDiff / timeDiff; // m/s
+    
+    // Force a small non-zero vertical speed if it's exactly 0 (for visibility)
+    const displayVerticalSpeed = Math.abs(verticalSpeed) < 0.01 ? 0.01 : verticalSpeed;
+    
+    // Log segment data for debugging
+    console.log(`Segment ${i}: Coords ${startPoint.coordinates} → ${endPoint.coordinates}, vSpeed: ${displayVerticalSpeed}`);
     
     // Create a line segment with its own vertical speed property
     features.push({
@@ -287,10 +372,32 @@ function updateTracklogDisplay() {
         coordinates: [startPoint.coordinates, endPoint.coordinates]
       },
       properties: {
-        verticalSpeed: verticalSpeed
+        verticalSpeed: displayVerticalSpeed
       }
     });
   }
+  
+  // Add a debug feature if no segments were created
+  if (features.length === 0 && tracklog.length >= 2) {
+    const first = tracklog[0];
+    const last = tracklog[tracklog.length - 1];
+    
+    if (first.coordinates && last.coordinates) {
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [first.coordinates, last.coordinates]
+        },
+        properties: {
+          verticalSpeed: 1 // Force yellow color for visibility
+        }
+      });
+      console.log('Added debug line feature from first to last point');
+    }
+  }
+  
+  console.log(`Updating tracklog with ${features.length} features`);
   
   // Update the source with individual segments
   getLayerManager().addOrUpdateSource('tracklog-source', {
@@ -408,7 +515,8 @@ function getTracklogLineStyle() {
       'line-cap': 'round'
     },
     paint: {
-      'line-width': 3,
+      'line-width': 5,
+      'line-opacity': 0.9,
       'line-color': [
         'interpolate',
         ['linear'],
